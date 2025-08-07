@@ -23,8 +23,8 @@ public record LocationListDto : BaseLocationDto
 
 public record LocationTreeDto : BaseLocationDto
 {
-    public int Level { get; init; }
-    public List<LocationTreeDto> Children { get; init; } = [];
+    public int Level { get; set; }
+    public List<LocationTreeDto> Children { get; set; } = [];
 }
 
 public record LocationHierarchyDto

@@ -36,8 +36,8 @@ public record ItemSelectDto
 
 public record ItemTreeDto : BaseItemDto
 {
-    public int Level { get; init; }
-    public List<ItemTreeDto> Children { get; init; } = [];
+    public int Level { get; set; }
+    public List<ItemTreeDto> Children { get; set; } = [];
 }
 public record ItemHierarchyDto
 {

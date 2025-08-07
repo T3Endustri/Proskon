@@ -29,8 +29,8 @@ public record ModuleListDto : BaseModuleDto
 }
 public record ModuleTreeDto : BaseModuleDto
 {
-    public int Level { get; init; }
-    public List<ModuleTreeDto> Children { get; init; } = [];
+    public int Level { get; set; }
+    public List<ModuleTreeDto> Children { get; set; } = [];
 }
 public record ModuleHierarchyDto
 {

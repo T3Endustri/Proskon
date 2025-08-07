@@ -62,6 +62,14 @@ public record FormResourceItemDto
     public int SortBy { get; init; }
     public bool IsActive { get; init; }
 }
+public class FormResourceListDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = default!;
+    public Guid TemplateId { get; set; }
+    public string? Description { get; set; }
+}
+
 public abstract record BasePropertyDto
 {
     public Guid Id { get; init; }
