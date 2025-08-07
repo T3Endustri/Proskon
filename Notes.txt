@@ -1,0 +1,17 @@
+Add-Migration Create-MigV0 -Context ApplicationDbContext -Project 01_Data -StartupProject Web -OutputDir Migrations
+
+
+protected override void Up(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.Sql(StoredProceduresHelper.CreateShiftEnd);
+}
+
+
+protected override void Down(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.Sql(StoredProceduresHelper.DropShiftEnd);
+}
+
+
+
+Add-Migration Create-MigV0 -Context ApplicationDbContext -Project 01_Data -StartupProject 01_Data -OutputDir Migrations
