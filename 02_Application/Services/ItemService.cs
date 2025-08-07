@@ -1,4 +1,5 @@
 ﻿using _01_Data.Entities;
+using _01_Data.Repositories;
 using _01_Data.Specifications;
 using _02_Application.Dtos;
 using _02_Application.Interfaces;
@@ -6,27 +7,23 @@ using AutoMapper;
 
 namespace _02_Application.Services;
 
-public class ItemService(
-    IGenericService<T3Item> itemService,
-    IGenericService<T3ItemHierarchy> hierarchyService,
-    IMapper mapper
-) : IItemService
+public class ItemService(IUnitOfWork unitOfWork, IMapper mapper) : IItemService
 {
     public async Task<List<ItemListDto>> GetAllAsync()
     {
-        var items = await itemService.ListAsync(ItemSpec.All());
+        var items = await unitOfWork.Repository<T3Item>().ListAsync(ItemSpec.All());
         return mapper.Map<List<ItemListDto>>(items);
     }
 
     public async Task<ItemDto?> GetByIdAsync(Guid id)
     {
-        var item = await itemService.ListAsync(ItemSpec.ById(id));
-        return mapper.Map<ItemDto>(item.FirstOrDefault());
+        var items = await unitOfWork.Repository<T3Item>().ListAsync(ItemSpec.ById(id));
+        return items.Count == 0 ? null : mapper.Map<ItemDto>(items[0]);
     }
 
     public async Task<List<ItemTreeDto>> GetTreeAsync()
     {
-        var allItems = await itemService.ListAsync(ItemSpec.Tree());
+        var allItems = await unitOfWork.Repository<T3Item>().ListAsync(ItemSpec.Tree());
         var itemDict = allItems.ToDictionary(i => i.Id);
         var tree = new List<ItemTreeDto>();
 
@@ -48,7 +45,7 @@ public class ItemService(
 
     public async Task<List<ItemHierarchyDto>> GetFlatHierarchyAsync(Guid itemId)
     {
-        var item = await itemService.GetByIdAsync(itemId, i => i.ListParents, i => i.ListChilds);
+        var item = await unitOfWork.Repository<T3Item>().GetByIdAsync(itemId, i => i.ListParents, i => i.ListChilds);
         if (item == null) return [];
 
         var hierarchies = item.ListParents.Concat(item.ListChilds).ToList();
@@ -58,24 +55,27 @@ public class ItemService(
     public async Task AddAsync(ItemDto dto)
     {
         var entity = mapper.Map<T3Item>(dto);
-        await itemService.AddAsync(entity);
+        await unitOfWork.Repository<T3Item>().AddAsync(entity);
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(ItemDto dto)
     {
         var entity = mapper.Map<T3Item>(dto);
-        await itemService.UpdateAsync(entity);
+        await unitOfWork.Repository<T3Item>().UpdateAsync(entity);
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        await itemService.DeleteAsync(id);
+        await unitOfWork.Repository<T3Item>().DeleteAsync(id);
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task AssignParentAsync(Guid childId, Guid parentId)
     {
-        var exists = await hierarchyService.AnyAsync(h =>
-            h.ChildId == childId && h.ParentId == parentId);
+        var repo = unitOfWork.Repository<T3ItemHierarchy>();
+        bool exists = await repo.AnyAsync(h => h.ChildId == childId && h.ParentId == parentId);
         if (!exists)
         {
             var relation = new T3ItemHierarchy
@@ -84,15 +84,18 @@ public class ItemService(
                 ChildId = childId,
                 ParentId = parentId
             };
-            await hierarchyService.AddAsync(relation);
+            await repo.AddAsync(relation);
+            await unitOfWork.SaveChangesAsync();
         }
     }
 
     public async Task RemoveParentAsync(Guid childId, Guid parentId)
     {
-        var relations = await hierarchyService.WhereAsync(h =>
-            h.ChildId == childId && h.ParentId == parentId);
+        var repo = unitOfWork.Repository<T3ItemHierarchy>();
+        var relations = await repo.WhereAsync(h => h.ChildId == childId && h.ParentId == parentId);
         foreach (var relation in relations)
-            await hierarchyService.DeleteAsync(relation.Id);
+            await repo.DeleteAsync(relation.Id);
+
+        await unitOfWork.SaveChangesAsync();
     }
 }

@@ -49,8 +49,8 @@ public record RoleListDto : BaseRoleDto
 }
 public record RoleTreeDto : BaseRoleDto
 {
-    public int Level { get; init; }
-    public List<RoleTreeDto> Children { get; init; } = [];
+    public int Level { get; set; }
+    public List<RoleTreeDto> Children { get; set; } = [];
 }
  
 public abstract record BaseClaimDto

@@ -1,4 +1,5 @@
 ﻿using _01_Data.Entities;
+using _01_Data.Repositories;
 using _01_Data.Specifications;
 using _02_Application.Dtos;
 using _02_Application.Interfaces;
@@ -6,36 +7,32 @@ using AutoMapper;
 
 namespace _02_Application.Services;
 
-public class ProcessTypeService(
-    IGenericService<T3ProcessType> typeService,
-    IGenericService<T3ProcessTypeItem> itemLinkService,
-    IGenericService<T3ProcessTypeModule> moduleLinkService,
-    IMapper mapper
-) : IProcessTypeService
+public class ProcessTypeService(IUnitOfWork unitOfWork, IMapper mapper) : IProcessTypeService
 {
     public async Task<List<ProcessTypeListDto>> GetAllAsync()
     {
-        var types = await typeService.ListAsync(ProcessTypeSpec.All());
+        var types = await unitOfWork.Repository<T3ProcessType>().ListAsync(ProcessTypeSpec.All());
         return mapper.Map<List<ProcessTypeListDto>>(types);
     }
 
     public async Task<ProcessTypeDto?> GetByIdAsync(Guid id)
     {
-        var types = await typeService.ListAsync(ProcessTypeSpec.ById(id));
-        return mapper.Map<ProcessTypeDto>(types.FirstOrDefault());
+        var types = await unitOfWork.Repository<T3ProcessType>().ListAsync(ProcessTypeSpec.ById(id));
+        return types.Count == 0 ? null : mapper.Map<ProcessTypeDto>(types[0]);
     }
 
     public async Task<List<ProcessTypeListDto>> SearchAsync(string keyword)
     {
-        var types = await typeService.ListAsync(ProcessTypeSpec.Search(keyword));
+        var types = await unitOfWork.Repository<T3ProcessType>().ListAsync(ProcessTypeSpec.Search(keyword));
         return mapper.Map<List<ProcessTypeListDto>>(types);
     }
 
     public async Task<(List<ProcessTypeListDto> Items, int TotalCount)> GetPagedAsync(string keyword, int skip, int take)
     {
-        var (items, total) = await typeService.PagingAsync(
+        var repo = unitOfWork.Repository<T3ProcessType>();
+        var (items, total) = await repo.PagingAsync(
             p => p.Name.Contains(keyword) || p.Barcode.Contains(keyword),
-            selector: type => mapper.Map<ProcessTypeListDto>(type),
+            selector: p => mapper.Map<ProcessTypeListDto>(p),
             orderBy: p => p.Name,
             descending: false,
             skip,
@@ -47,59 +44,72 @@ public class ProcessTypeService(
     public async Task AddAsync(ProcessTypeDto dto)
     {
         var entity = mapper.Map<T3ProcessType>(dto);
-        await typeService.AddAsync(entity);
+        await unitOfWork.Repository<T3ProcessType>().AddAsync(entity);
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(ProcessTypeDto dto)
     {
         var entity = mapper.Map<T3ProcessType>(dto);
-        await typeService.UpdateAsync(entity);
+        await unitOfWork.Repository<T3ProcessType>().UpdateAsync(entity);
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        await typeService.DeleteAsync(id);
+        await unitOfWork.Repository<T3ProcessType>().DeleteAsync(id);
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task AssignItemAsync(Guid typeId, Guid itemId)
     {
-        var exists = await itemLinkService.AnyAsync(x => x.TypeId == typeId && x.ItemId == itemId);
+        var repo = unitOfWork.Repository<T3ProcessTypeItem>();
+        var exists = await repo.AnyAsync(x => x.TypeId == typeId && x.ItemId == itemId);
         if (!exists)
         {
-            await itemLinkService.AddAsync(new T3ProcessTypeItem
+            await repo.AddAsync(new T3ProcessTypeItem
             {
                 Id = Guid.NewGuid(),
                 TypeId = typeId,
                 ItemId = itemId
             });
+            await unitOfWork.SaveChangesAsync();
         }
     }
 
     public async Task AssignModuleAsync(Guid typeId, Guid moduleId)
     {
-        var exists = await moduleLinkService.AnyAsync(x => x.TypeId == typeId && x.ModuleId == moduleId);
+        var repo = unitOfWork.Repository<T3ProcessTypeModule>();
+        var exists = await repo.AnyAsync(x => x.TypeId == typeId && x.ModuleId == moduleId);
         if (!exists)
         {
-            await moduleLinkService.AddAsync(new T3ProcessTypeModule
+            await repo.AddAsync(new T3ProcessTypeModule
             {
                 Id = Guid.NewGuid(),
                 TypeId = typeId,
                 ModuleId = moduleId
             });
+            await unitOfWork.SaveChangesAsync();
         }
     }
 
     public async Task RemoveItemAsync(Guid typeId, Guid itemId)
     {
-        var items = await itemLinkService.WhereAsync(x => x.TypeId == typeId && x.ItemId == itemId);
+        var repo = unitOfWork.Repository<T3ProcessTypeItem>();
+        var items = await repo.WhereAsync(x => x.TypeId == typeId && x.ItemId == itemId);
         foreach (var i in items)
-            await itemLinkService.DeleteAsync(i.Id);
+            await repo.DeleteAsync(i.Id);
+
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task RemoveModuleAsync(Guid typeId, Guid moduleId)
     {
-        var modules = await moduleLinkService.WhereAsync(x => x.TypeId == typeId && x.ModuleId == moduleId);
+        var repo = unitOfWork.Repository<T3ProcessTypeModule>();
+        var modules = await repo.WhereAsync(x => x.TypeId == typeId && x.ModuleId == moduleId);
         foreach (var m in modules)
-            await moduleLinkService.DeleteAsync(m.Id);
+            await repo.DeleteAsync(m.Id);
+
+        await unitOfWork.SaveChangesAsync();
     }
 }

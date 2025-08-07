@@ -1,4 +1,5 @@
 ﻿using _01_Data.Entities;
+using _01_Data.Repositories;
 using _01_Data.Specifications;
 using _02_Application.Dtos;
 using _02_Application.Interfaces;
@@ -6,37 +7,37 @@ using AutoMapper;
 
 namespace _02_Application.Services;
 
-public class ShiftTypeService(
-    IGenericService<T3ShiftType> shiftTypeService,
-    IMapper mapper
-) : IShiftTypeService
+public class ShiftTypeService(IUnitOfWork unitOfWork, IMapper mapper) : IShiftTypeService
 {
     public async Task<List<ShiftTypeListDto>> GetAllAsync()
     {
-        var types = await shiftTypeService.ListAsync(ShiftTypeSpec.All());
+        var types = await unitOfWork.Repository<T3ShiftType>().ListAsync(ShiftTypeSpec.All());
         return mapper.Map<List<ShiftTypeListDto>>(types);
     }
 
     public async Task<ShiftTypeDto?> GetByIdAsync(Guid id)
     {
-        var type = await shiftTypeService.ListAsync(ShiftTypeSpec.ById(id));
-        return mapper.Map<ShiftTypeDto>(type.FirstOrDefault());
+        var types = await unitOfWork.Repository<T3ShiftType>().ListAsync(ShiftTypeSpec.ById(id));
+        return types.Count == 0 ? null : mapper.Map<ShiftTypeDto>(types[0]);
     }
 
     public async Task AddAsync(ShiftTypeDto dto)
     {
         var entity = mapper.Map<T3ShiftType>(dto);
-        await shiftTypeService.AddAsync(entity);
+        await unitOfWork.Repository<T3ShiftType>().AddAsync(entity);
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(ShiftTypeDto dto)
     {
         var entity = mapper.Map<T3ShiftType>(dto);
-        await shiftTypeService.UpdateAsync(entity);
+        await unitOfWork.Repository<T3ShiftType>().UpdateAsync(entity);
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(Guid id)
     {
-        await shiftTypeService.DeleteAsync(id);
+        await unitOfWork.Repository<T3ShiftType>().DeleteAsync(id);
+        await unitOfWork.SaveChangesAsync();
     }
 }

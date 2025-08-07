@@ -1,4 +1,5 @@
 ﻿using _01_Data.Entities;
+using _01_Data.Repositories;
 using _01_Data.Specifications;
 using _02_Application.Dtos;
 using _02_Application.Interfaces;
@@ -6,69 +7,86 @@ using AutoMapper;
 
 namespace _02_Application.Services;
 
-public class ClaimService(
-    IGenericService<T3IdentityClaim> claimService,
-    IMapper mapper
-) : IClaimService
+public class ClaimService(IUnitOfWork unitOfWork, IMapper mapper) : IClaimService
 {
     public async Task<List<ClaimDto>> GetAllAsync()
     {
-        var claims = await claimService.ListAsync(ClaimSpec.All());
+        var spec = ClaimSpec.All();
+        var claims = await unitOfWork.Repository<T3IdentityClaim>().ListAsync(spec);
         return mapper.Map<List<ClaimDto>>(claims);
     }
 
     public async Task<List<ClaimDto>> GetByUserIdAsync(Guid userId)
     {
-        var claims = await claimService.ListAsync(ClaimSpec.ByUserId(userId));
+        var spec = ClaimSpec.ByUserId(userId);
+        var claims = await unitOfWork.Repository<T3IdentityClaim>().ListAsync(spec);
         return mapper.Map<List<ClaimDto>>(claims);
     }
 
     public async Task<List<ClaimDto>> GetByRoleIdAsync(Guid roleId)
     {
-        var claims = await claimService.ListAsync(ClaimSpec.ByRoleId(roleId));
+        var spec = ClaimSpec.ByRoleId(roleId);
+        var claims = await unitOfWork.Repository<T3IdentityClaim>().ListAsync(spec);
         return mapper.Map<List<ClaimDto>>(claims);
     }
 
     public async Task AssignClaimsToUserAsync(ClaimAssignDto dto)
     {
-        foreach (var claim in dto.Claims)
-        {
-            var exists = await claimService.AnyAsync(c =>
-                c.UserId == dto.UserId &&
-                c.Type == claim.Type &&
-                c.Value == claim.Value);
+        if (dto.UserId is null) return;
 
-            if (!exists)
+        var repo = unitOfWork.Repository<T3IdentityClaim>();
+
+        var existingClaims = await repo.WhereAsync(c => c.UserId == dto.UserId);
+        foreach (var claim in existingClaims)
+            await repo.DeleteAsync(claim.Id);
+
+        foreach (var newClaim in dto.Claims)
+        {
+            var claim = new T3IdentityClaim
             {
-                var entity = mapper.Map<T3IdentityClaim>(claim);
-                entity.Id = Guid.NewGuid();
-                entity.UserId = dto.UserId;
-                await claimService.AddAsync(entity);
-            }
+                Id = Guid.NewGuid(),
+                UserId = dto.UserId,
+                Type = newClaim.Type,
+                Value = newClaim.Value,
+                PermissionType = newClaim.PermissionType
+            };
+
+            await repo.AddAsync(claim);
         }
+
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task AssignClaimsToRoleAsync(ClaimAssignDto dto)
     {
-        foreach (var claim in dto.Claims)
-        {
-            var exists = await claimService.AnyAsync(c =>
-                c.RoleId == dto.RoleId &&
-                c.Type == claim.Type &&
-                c.Value == claim.Value);
+        if (dto.RoleId is null) return;
 
-            if (!exists)
+        var repo = unitOfWork.Repository<T3IdentityClaim>();
+
+        var existingClaims = await repo.WhereAsync(c => c.RoleId == dto.RoleId);
+        foreach (var claim in existingClaims)
+            await repo.DeleteAsync(claim.Id);
+
+        foreach (var newClaim in dto.Claims)
+        {
+            var claim = new T3IdentityClaim
             {
-                var entity = mapper.Map<T3IdentityClaim>(claim);
-                entity.Id = Guid.NewGuid();
-                entity.RoleId = dto.RoleId;
-                await claimService.AddAsync(entity);
-            }
+                Id = Guid.NewGuid(),
+                RoleId = dto.RoleId,
+                Type = newClaim.Type,
+                Value = newClaim.Value,
+                PermissionType = newClaim.PermissionType
+            };
+
+            await repo.AddAsync(claim);
         }
+
+        await unitOfWork.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(Guid claimId)
     {
-        await claimService.DeleteAsync(claimId);
+        await unitOfWork.Repository<T3IdentityClaim>().DeleteAsync(claimId);
+        await unitOfWork.SaveChangesAsync();
     }
 }
