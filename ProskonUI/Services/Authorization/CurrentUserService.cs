@@ -5,18 +5,12 @@ using _02_Application.Interfaces;
 
 namespace ProskonUI.Services.Authorization;
 
-public class CurrentUserService : ICurrentUserService
+public class CurrentUserService(AuthenticationStateProvider authStateProvider, IUserService userService) : ICurrentUserService
 {
-    private readonly AuthenticationStateProvider _authStateProvider;
-    private readonly IUserService _userService;
+    private readonly AuthenticationStateProvider _authStateProvider = authStateProvider;
+    private readonly IUserService _userService = userService;
 
     private UserListDto? _cachedUser;
-
-    public CurrentUserService(AuthenticationStateProvider authStateProvider, IUserService userService)
-    {
-        _authStateProvider = authStateProvider;
-        _userService = userService;
-    }
 
     public UserListDto? User => _cachedUser;
 

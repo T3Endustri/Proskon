@@ -1,7 +1,43 @@
 ﻿using _01_Data.Entities;
-
+using System.Linq.Expressions;
 namespace _01_Data.Specifications;
 
+#region Bases
+public interface ISpecification<T>
+{
+    Expression<Func<T, bool>>? Criteria { get; }
+    Expression<Func<T, object>>[] Includes { get; }
+    Expression<Func<T, object>>? OrderBy { get; }
+    bool IsDescending { get; }
+    int? Skip { get; }
+    int? Take { get; }
+}
+public class InlineSpec<T> : BaseSpecification<T>
+{
+    public InlineSpec(Expression<Func<T, bool>> criteria)
+    {
+        Criteria = criteria;
+    }
+    public InlineSpec() : this(_ => true)
+    {
+    }
+    public InlineSpec(params Expression<Func<T, object>>[] includes) : this(_ => true)
+    {
+        Includes = includes;
+    }
+}
+public abstract class BaseSpecification<T> : ISpecification<T>
+{
+    public Expression<Func<T, bool>>? Criteria { get; set; }
+    public Expression<Func<T, object>>[] Includes { get; set; } = [];
+    public Expression<Func<T, object>>? OrderBy { get; set; }
+    public bool IsDescending { get; set; }
+    public int? Skip { get; set; }
+    public int? Take { get; set; }
+}
+#endregion
+
+#region Specs
 public static class ItemSpec
 {
     public static ISpecification<T3Item> All()
@@ -344,3 +380,4 @@ public static class ClaimSpec
     public static ISpecification<T3IdentityClaim> ByRoleId(Guid roleId)
         => new InlineSpec<T3IdentityClaim>(c => c.RoleId == roleId);
 }
+#endregion
