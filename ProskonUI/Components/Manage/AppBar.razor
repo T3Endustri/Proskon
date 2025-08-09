@@ -1,0 +1,26 @@
+﻿@using Syncfusion.Blazor.Buttons
+
+<SfAppBar ColorMode="AppBarColor.Dark">
+    <SfButton CssClass="e-inherit" IconCss="e-icons e-menu fs-32" OnClick="HandleClick" />
+    <AppBarSpacer />
+    <SfButton CssClass="e-inherit" Content="Proskon" />
+</SfAppBar>
+
+@code {
+    [Parameter] public EventCallback OnToggleSidebar { get; set; }
+
+    private async Task HandleClick()
+    {
+        Console.WriteLine("📌 AppBar butonuna tıklandı!");
+
+        if (OnToggleSidebar.HasDelegate)
+        {
+            Console.WriteLine("✅ ToggleSidebar bağlı, çağrılıyor...");
+            await OnToggleSidebar.InvokeAsync();
+        }
+        else
+        {
+            Console.WriteLine("❌ ToggleSidebar bağlı değil!");
+        }
+    }
+}

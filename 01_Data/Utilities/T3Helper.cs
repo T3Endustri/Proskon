@@ -2,7 +2,7 @@
 
 namespace _01_Data.Utilities;
 
-public static class SequentialGuid
+public static class T3Helper
 {
     public enum SequentialGuidType
     {
@@ -11,7 +11,7 @@ public static class SequentialGuid
         SequentialAtEnd
     }
 
-    public static Guid NewGuid(SequentialGuidType guidType = SequentialGuidType.SequentialAsString)
+    public static Guid NewSequentialGuid(SequentialGuidType guidType = SequentialGuidType.SequentialAsString)
     {
         byte[] randomBytes = new byte[10];
         RandomNumberGenerator.Fill(randomBytes);
@@ -41,4 +41,14 @@ public static class SequentialGuid
 
         return new Guid(guidBytes);
     }
+
+    public static class PasswordHasher
+    {
+        public static string Hash(string password) =>
+            BCrypt.Net.BCrypt.HashPassword(password);
+
+        public static bool Verify(string password, string hashedPassword) =>
+            BCrypt.Net.BCrypt.Verify(password, hashedPassword);
+    }
 }
+

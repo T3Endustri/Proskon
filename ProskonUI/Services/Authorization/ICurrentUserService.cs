@@ -24,4 +24,6 @@ public interface ICurrentUserService
     /// Kullanıcının belirli bir role sahip olup olmadığını kontrol eder.
     /// </summary>
     bool HasRole(string roleName);
+
+    Task EnsureUserLoadedAsync();
 }

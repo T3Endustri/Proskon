@@ -2,6 +2,19 @@
 using _02_Application.Dtos;
 namespace _02_Application.Interfaces;
 
+public interface ILogService
+{
+    void Info(string source, string message);
+    void Warning(string source, string message);
+    void Error(string source, string message, Exception? ex = null);
+}
+
+public interface IAppSeeder
+{
+    Task SeedAsync();
+}
+
+
 public interface IClaimService
 {
     Task<List<ClaimDto>> GetAllAsync();
@@ -163,4 +176,8 @@ public interface IUserService
     Task ChangePasswordAsync(UserChangePasswordDto dto);
     Task DeleteAsync(Guid id);
 }
- 
+
+public interface IAuthService
+{
+    Task<LoginResultDto> LoginAsync(LoginDto dto);
+}

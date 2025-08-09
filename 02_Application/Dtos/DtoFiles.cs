@@ -1,4 +1,6 @@
-﻿namespace _02_Application.Dtos;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace _02_Application.Dtos;
 
 #region Form Dtos
 public abstract record BaseFormDto
@@ -156,7 +158,23 @@ public record TemplateApproverDto
 }
 #endregion
 
-#region Identity Dtos
+#region Identity Dtos 
+public class LoginDto
+{
+    [Required(ErrorMessage = "Kullanıcı ID zorunludur")]
+    public string UserId { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Şifre zorunludur")]
+    [MinLength(4, ErrorMessage = "Şifre en az 4 karakter olmalı")]
+    public string Password { get; set; } = string.Empty;
+}
+
+public record LoginResultDto
+{
+    public bool Success { get; init; }
+    public string Message { get; init; } = string.Empty;
+    public UserListDto? User { get; init; }
+}
 public abstract record BaseUserDto
 {
     public Guid Id { get; init; }
@@ -166,6 +184,7 @@ public abstract record BaseUserDto
     public string Email { get; init; } = string.Empty;
     public bool IsActive { get; init; }
     public string PhotoUrl { get; init; } = string.Empty;
+    public string StartPage { get; set; } = string.Empty;
 }
 public record UserListDto : BaseUserDto
 {
@@ -279,7 +298,8 @@ public abstract record BaseModuleDto
     public bool IsCanModuleType { get; init; }
     public bool IsCanTarget { get; init; }
     public bool IsCanSerial { get; init; }
-
+    public int IconMultiple { get; set; } = 0;
+    public int IconSingle { get; set; } = 0;
     public string ColorBack { get; init; } = string.Empty;
     public string ColorFore { get; init; } = string.Empty;
     public int SortBy { get; init; }

@@ -1,0 +1,62 @@
+﻿@page "/login"
+@layout MainLayout
+@inject IAuthService AuthService
+@inherits ProskonPageBase
+
+<link href="/css/login.css" rel="stylesheet" />
+
+<div class="container">
+    <h2>Giriş Ekranı</h2>
+    <div class="form">
+        <div class="inputBox">
+            <input type="text" @bind-value="loginModel.UserId" required>
+            <div class="icon">
+                <i class="bi bi-person-fill"></i>
+            </div>
+            <span class="text">User ID</span>
+        </div>
+        <div class="inputBox">
+            <input type="password" @bind-value="loginModel.Password" required>
+            <div class="icon">
+                <i class="bi bi-key-fill"></i>
+            </div>
+            <span class="text">Şifre</span>
+        </div>
+        <div class="inputBox">
+            <input type="submit" value="Giriş" @onclick="HandleLogin">
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginDto loginModel = new(); 
+    private bool _showPassword = false;
+
+    private async Task HandleLogin()
+    {
+        if(string.IsNullOrWhiteSpace(loginModel.UserId) || string.IsNullOrWhiteSpace(loginModel.Password))
+        {
+            await Toast.Error("Giriş Başarısız", "Kullanıcı ID ve Şifre alanları boş bırakılamaz."); 
+            return;
+        };
+
+        var result = await AuthService.LoginAsync(loginModel);
+
+        if (result.Success && result.User is not null)
+        {
+            
+            Navigation.NavigateTo(result.User.StartPage, forceLoad: true);
+            await Toast.Success("Giriş Başarılı", "Hoş geldiniz!");
+        }
+        else
+        {
+            await Toast.Error("Giriş Başarısız", result.Message); 
+        }
+    }
+
+
+    private void TogglePasswordVisibility()
+    {
+        _showPassword = !_showPassword;
+    }
+}

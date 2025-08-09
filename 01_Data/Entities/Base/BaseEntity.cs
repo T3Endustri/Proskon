@@ -7,7 +7,7 @@ public abstract class BaseEntity
 {
     [Key]
     [Required]
-    public Guid Id { get; set; } = SequentialGuid.NewGuid();
+    public Guid Id { get; set; } = T3Helper.NewSequentialGuid();
 
     [Timestamp]
     public byte[] RowVersion { get; set; } = default!;

@@ -4,51 +4,64 @@ using _01_Data.Specifications;
 using _02_Application.Dtos;
 using _02_Application.Interfaces;
 using AutoMapper;
+using Serilog;
+using static _01_Data.Utilities.T3Helper;
 
 namespace _02_Application.Services;
 
 #region Identity Services
 public class UserService(IUnitOfWork unitOfWork, IMapper mapper) : IUserService
-{  
+{
     public async Task<UserListDto?> GetByIdAsync(Guid id)
     {
         var user = await unitOfWork.Repository<T3IdentityUser>().GetByIdAsync(id, u => u.ListRoles, u => u.ListClaims);
         return user is null ? null : mapper.Map<UserListDto>(user);
     }
+
     public async Task<List<UserListDto>> GetAllAsync()
     {
         var users = await unitOfWork.Repository<T3IdentityUser>().ListAsync(UserSpec.All());
         return mapper.Map<List<UserListDto>>(users);
     }
+
     public async Task AddAsync(UserDto dto)
     {
         var user = mapper.Map<T3IdentityUser>(dto);
+        user.PasswordHash = PasswordHasher.Hash(dto.Password); // ✅ HASH!
         await unitOfWork.Repository<T3IdentityUser>().AddAsync(user);
         await unitOfWork.SaveChangesAsync();
     }
+
     public async Task UpdateAsync(UserDto dto)
     {
-        var user = await unitOfWork.Repository<T3IdentityUser>().GetByIdAsync(dto.Id) ?? throw new Exception("Kullanıcı bulunamadı");
-        mapper.Map(dto, user);
+        var user = await unitOfWork.Repository<T3IdentityUser>().GetByIdAsync(dto.Id)
+                   ?? throw new Exception("Kullanıcı bulunamadı");
+
+        // Şifre dışındaki bilgileri güncelle
+        user.FirstName = dto.FirstName;
+        user.LastName = dto.LastName;
+        user.Email = dto.Email;
+        user.PhotoUrl = dto.PhotoUrl;
+        user.IsActive = dto.IsActive;
+
         await unitOfWork.Repository<T3IdentityUser>().UpdateAsync(user);
         await unitOfWork.SaveChangesAsync();
     }
+
     public async Task ChangePasswordAsync(UserChangePasswordDto dto)
     {
-        var user = await unitOfWork.Repository<T3IdentityUser>().GetByIdAsync(dto.Id) ?? throw new Exception("Kullanıcı bulunamadı");
-        user.PasswordHash = HashPassword(dto.NewPassword);
+        var user = await unitOfWork.Repository<T3IdentityUser>().GetByIdAsync(dto.Id)
+                   ?? throw new Exception("Kullanıcı bulunamadı");
+
+        user.PasswordHash = PasswordHasher.Hash(dto.NewPassword); // ✅ HASH!
         await unitOfWork.Repository<T3IdentityUser>().UpdateAsync(user);
         await unitOfWork.SaveChangesAsync();
     }
+
     public async Task DeleteAsync(Guid id)
     {
         await unitOfWork.Repository<T3IdentityUser>().DeleteAsync(id);
         await unitOfWork.SaveChangesAsync();
-    }
-    private string HashPassword(string password)
-    {
-        // Gerçek uygulamada şifreyi hash'lemen gerekir.
-        return password;
     }
 }
 public class RoleService(IUnitOfWork unitOfWork, IMapper mapper) : IRoleService
@@ -527,6 +540,8 @@ public class PropertyService(IUnitOfWork unitOfWork, IMapper mapper) : IProperty
     }
 }
 #endregion
+
+#region Module and Item Services
 public class ModuleService(IUnitOfWork unitOfWork, IMapper mapper) : IModuleService
 {
     public async Task<List<ModuleListDto>> GetAllAsync()
@@ -695,6 +710,9 @@ public class ItemService(IUnitOfWork unitOfWork, IMapper mapper) : IItemService
         await unitOfWork.SaveChangesAsync();
     }
 }
+#endregion
+
+#region Process Type and Protocol Services
 public class ProcessTypeService(IUnitOfWork unitOfWork, IMapper mapper) : IProcessTypeService
 {
     public async Task<List<ProcessTypeListDto>> GetAllAsync()
@@ -826,6 +844,9 @@ public class ProtocolService(IUnitOfWork unitOfWork, IMapper mapper) : IProtocol
         await unitOfWork.SaveChangesAsync();
     }
 }
+#endregion
+
+#region Shift and Shift Type Services
 public class ShiftTypeService(IUnitOfWork unitOfWork, IMapper mapper) : IShiftTypeService
 {
     public async Task<List<ShiftTypeListDto>> GetAllAsync()
@@ -895,3 +916,45 @@ public class ShiftService(IUnitOfWork unitOfWork, IMapper mapper) : IShiftServic
         await unitOfWork.SaveChangesAsync();
     }
 }
+#endregion
+
+public class SerilogLogService : ILogService
+{
+    public void Info(string source, string message)
+    {
+        Log.ForContext("Source", source).Information(message);
+    }
+
+    public void Warning(string source, string message)
+    {
+        Log.ForContext("Source", source).Warning(message);
+    }
+
+    public void Error(string source, string message, Exception? ex = null)
+    {
+        Log.ForContext("Source", source).Error(ex, message);
+    }
+}
+
+public class AuthService(IUnitOfWork unitOfWork, IMapper mapper) : IAuthService
+{
+    public async Task<LoginResultDto> LoginAsync(LoginDto dto)
+    {
+        var spec = UserSpec.ByUserId(dto.UserId);
+        var users = await unitOfWork.Repository<T3IdentityUser>().ListAsync(spec);
+        var user = users.FirstOrDefault(u => u.IsActive);
+
+        if (user is null)
+            return new LoginResultDto { Success = false, Message = "Kullanıcı bulunamadı veya pasif" };
+
+        if (!PasswordHasher.Verify(dto.Password, user.PasswordHash))
+            return new LoginResultDto { Success = false, Message = "Şifre hatalı" };
+
+        return new LoginResultDto
+        {
+            Success = true,
+            User = mapper.Map<UserListDto>(user)
+        };
+    }
+}
+

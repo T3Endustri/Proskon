@@ -1,0 +1,23 @@
+﻿@inherits LayoutComponentBase
+
+<AppBar OnToggleSidebar="ToggleSidebar" />
+
+<div id="layout-container">
+    <Sidebar @bind-IsOpen="_isSidebarOpen" />
+
+    <main class="content layout-content @( _isSidebarOpen ? "shifted" : null) p-2">
+        @Body
+    </main>
+</div>
+
+@code {
+    private bool _isSidebarOpen = false; // ilk yükte kapalı başlatmak genelde daha doğal
+
+    private void ToggleSidebar()
+    {
+        Console.WriteLine("📂 ToggleSidebar METODU ÇALIŞTI");
+        _isSidebarOpen = !_isSidebarOpen;
+        // Gerekirse force render:
+        // StateHasChanged();
+    }
+}

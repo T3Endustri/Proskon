@@ -1,0 +1,32 @@
+﻿@using Syncfusion.Blazor.Notifications
+@inject ProskonUI.Services.ToastService ToastService
+
+<SfToast @ref="toast" ID="app_toast" Width="320px">
+    <ToastPosition X="Center"></ToastPosition>
+</SfToast>
+
+@code {
+    private SfToast? toast;
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShow += HandleShowAsync;
+        ToastService.OnHideAll += HandleHideAllAsync;
+    }
+
+    private Task HandleHideAllAsync()
+        => toast?.HideAsync("All") ?? Task.CompletedTask;
+
+    private Task HandleShowAsync(ToastRequest req)
+    {
+        var model = req.Type switch
+        {
+            ToastType.Success => new ToastModel { Title = string.IsNullOrWhiteSpace(req.Title) ? "Başarılı!" : req.Title, Content = req.Content, CssClass = "e-toast-success", Icon = "fs-36 bi-check-square-fill" },
+            ToastType.Error => new ToastModel { Title = string.IsNullOrWhiteSpace(req.Title) ? "Hata!" : req.Title, Content = req.Content, CssClass = "e-toast-danger", Icon = "fs-36 bi-exclamation-square-fill" },
+            ToastType.Warning => new ToastModel { Title = string.IsNullOrWhiteSpace(req.Title) ? "Uyarı!" : req.Title, Content = req.Content, CssClass = "e-toast-warning", Icon = "fs-36 bi-exclamation-triangle-fill" },
+            _ => new ToastModel { Title = string.IsNullOrWhiteSpace(req.Title) ? "Bilgi" : req.Title, Content = req.Content, CssClass = "e-toast-info", Icon = "fs-36 bi-info-square-fill" }
+        };
+        if (req.TimeOutMs is int ms) model.Timeout = ms;
+        return toast!.ShowAsync(model);
+    }
+}

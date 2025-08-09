@@ -1,0 +1,132 @@
+﻿* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #191919;
+}
+
+.container {
+    position: relative;
+    width: 400px;
+}
+
+h2 {
+    font-size: 2em;
+    color: #fff;
+    text-align: center;
+    width: 100%;
+    margin-bottom: 40px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+}
+
+.container .form {
+    position: relative;
+    width: 100%;
+}
+
+    .container .form .inputBox {
+        position: relative;
+        width: 100%;
+        height: 100px;
+    }
+
+        .container .form .inputBox input {
+            position: absolute;
+            width: 100%;
+            padding: 20px 10px 16px;
+            padding-left: 40px;
+            border: none;
+            border-radius: 8px;
+            outline: none;
+            background: #282626;
+            color: #fff;
+            font-size: 1em;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 400;
+            border: 2px solid #000;
+        }
+
+        .container .form .inputBox .icon {
+            position: absolute;
+            top: 7px;
+            left: 12px;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            border-radius: 6px;
+            font-size: 1.4em;
+            background: #216fed;
+            transition: 0.25s;
+            pointer-events: none;
+        }
+
+        .container .form .inputBox:nth-child(2) .icon {
+            background: #ff1356;
+        }
+
+        .container .form .inputBox input:focus ~ .icon,
+        .container .form .inputBox input:valid ~ .icon {
+            width: 60px;
+            height: 60px;
+            top: -25px;
+            left: -30px;
+        }
+
+        .container .form .inputBox .text {
+            position: absolute;
+            top: 0;
+            padding: 22px 0;
+            padding-left: 80px;
+            font-weight: 400;
+            color: rgba(255,255,255,0.5);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 1em;
+            transition: 0.25s;
+            pointer-events: none;
+        }
+
+        .container .form .inputBox input:focus ~ .text,
+        .container .form .inputBox input:valid ~ .text {
+            top: -45px;
+            padding-left: 40px;
+            font-size: 0.75em;
+            color: rgba(255,255,255,1);
+        }
+
+.forget {
+    position: relative;
+    top: -15px;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.5);
+}
+
+    .forget a {
+        color: #fff;
+    }
+
+.container .form .inputBox input[type="submit"] {
+    padding: 10px 20px;
+    background: #282626;
+    cursor: pointer;
+    margin-top: 20px;
+}
+
+    .container .form .inputBox input[type="submit"]:hover {
+        background: #fff;
+        color: #191919
+    }

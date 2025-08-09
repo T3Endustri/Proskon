@@ -194,6 +194,9 @@ public static class UserSpec
     public static ISpecification<T3IdentityUser> ByBarcode(string barcode)
         => new InlineSpec<T3IdentityUser>(u => u.Barcode == barcode);
 
+    public static ISpecification<T3IdentityUser> ByUserId(string userId)
+        => new InlineSpec<T3IdentityUser>(u => u.UserId == userId);
+
     public static ISpecification<T3IdentityUser> Search(string keyword)
         => new InlineSpec<T3IdentityUser>(u =>
             u.FirstName.Contains(keyword) ||
