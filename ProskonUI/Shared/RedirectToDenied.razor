@@ -1,0 +1,10 @@
+﻿@inject NavigationManager Navigation
+@code {
+    bool did;
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (did) return;
+        did = true;
+        Navigation.NavigateTo("/denied", forceLoad: true); // denied için "/denied"
+    }
+}

@@ -1,22 +1,25 @@
 ﻿@page "/login"
 @layout MainLayout
+@inject IJSRuntime JS
 @inject IAuthService AuthService
+@inject HttpClient Http
+@inject ProskonUI.Services.Authorization.IT3AuthService UiAuth // UI Cookie
 @inherits ProskonPageBase
 
 <link href="/css/login.css" rel="stylesheet" />
-
+<PageTitle></PageTitle>
 <div class="container">
-    <h2>Giriş Ekranı</h2>
+
     <div class="form">
         <div class="inputBox">
-            <input type="text" @bind-value="loginModel.UserId" required>
+            <input type="text" @bind-value="loginModel.UserId" autocomplete="off" required>
             <div class="icon">
                 <i class="bi bi-person-fill"></i>
             </div>
             <span class="text">User ID</span>
         </div>
         <div class="inputBox">
-            <input type="password" @bind-value="loginModel.Password" required>
+            <input type="password" @bind-value="loginModel.Password" autocomplete="off" required>
             <div class="icon">
                 <i class="bi bi-key-fill"></i>
             </div>
@@ -29,30 +32,38 @@
 </div>
 
 @code {
-    private LoginDto loginModel = new(); 
+    private LoginDto loginModel = new();
     private bool _showPassword = false;
+
+    [SupplyParameterFromQuery] public string? returnUrl { get; set; }
 
     private async Task HandleLogin()
     {
-        if(string.IsNullOrWhiteSpace(loginModel.UserId) || string.IsNullOrWhiteSpace(loginModel.Password))
-        {
-            await Toast.Error("Giriş Başarısız", "Kullanıcı ID ve Şifre alanları boş bırakılamaz."); 
-            return;
-        };
+        if (string.IsNullOrWhiteSpace(loginModel.UserId) || string.IsNullOrWhiteSpace(loginModel.Password))
+        { await Toast.Error("Giriş Başarısız", "Kullanıcı ID ve Şifre boş olamaz."); return; }
 
-        var result = await AuthService.LoginAsync(loginModel);
-
-        if (result.Success && result.User is not null)
+        var result = await JS.InvokeAsync<LoginResult>("proskon.signIn", loginModel);
+        if (result.ok)
         {
-            
-            Navigation.NavigateTo(result.User.StartPage, forceLoad: true);
-            await Toast.Success("Giriş Başarılı", "Hoş geldiniz!");
+            // 1) returnUrl varsa ona, yoksa server’dan gelen startPage’e, o da yoksa fallback
+            var target = !string.IsNullOrWhiteSpace(returnUrl)
+                ? returnUrl!
+                : (!string.IsNullOrWhiteSpace(result.startPage) ? result.startPage! : "/manage/dashboard");
+
+            Navigation.NavigateTo(target, forceLoad: true);
         }
         else
         {
-            await Toast.Error("Giriş Başarısız", result.Message); 
+            await Toast.Error("Giriş Başarısız", "Geçersiz kullanıcı veya şifre.");
         }
     }
+
+    private record LoginResult(bool ok, string? startPage);
+
+
+
+    private sealed class SigninPayload { public string? startPage { get; set; } }
+
 
 
     private void TogglePasswordVisibility()

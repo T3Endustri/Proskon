@@ -1,10 +1,12 @@
 ﻿using _01_Data.Entities; 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 
 namespace _01_Data.Context;
 
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {
+    #region Tables
     public DbSet<T3IdentityUser> T3IdentityUser { get; set; } = default!;
     public DbSet<T3IdentityUserRole> T3IdentityUserRole { get; set; } = default!;
     public DbSet<T3IdentityRole> T3IdentityRole { get; set; } = default!;
@@ -38,7 +40,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<T3ShiftTypeCategory> T3ShiftTypeCategory { get; set; }
     public DbSet<T3ShiftTypeDay> T3ShiftTypeDay { get; set; }
     public DbSet<T3ShiftTypeLocation> T3ShiftTypeLocation { get; set; }
+    #endregion
 
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    { 
+        base.OnConfiguring(optionsBuilder);
+    } 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -83,6 +90,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                                           .OnDelete(DeleteBehavior.Cascade);
             _ = entity.HasIndex(p => p.UserId);
             _ = entity.HasIndex(p => p.RoleId);
+            _ = entity.Navigation(e => e.Role).AutoInclude(); 
         });
 
         _ = builder.Entity<T3IdentityRole>(entity =>
@@ -94,18 +102,25 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             _ = entity.Property(p => p.IsDepartment).HasDefaultValue(0);
         });
 
-        _ = builder.Entity<T3IdentityRoleHierarchy>(entity =>
+        builder.Entity<T3IdentityRoleHierarchy>(entity =>
         {
-            _ = entity.HasKey(ur => new { ur.ParentId, ur.ChildId });
-            _ = entity.HasOne(p => p.Parent).WithMany(p => p.ListChilds)
-                                            .HasForeignKey(p => p.ParentId)
-                                            .OnDelete(DeleteBehavior.Cascade);
-            _ = entity.HasOne(p => p.Child).WithMany(p => p.ListParents)
-                                           .HasForeignKey(p => p.ChildId)
-                                           .OnDelete(DeleteBehavior.Restrict);
-            _ = entity.HasIndex(p => p.ParentId);
-            _ = entity.HasIndex(p => p.ChildId);
+            // Artık tekil Id PK (BaseEntity.Id). Çift PK yerine unique index:
+            entity.HasIndex(h => new { h.ParentId, h.ChildId }).IsUnique();
+
+            entity.HasOne(h => h.Parent)
+                  .WithMany(r => r.ListChilds)
+                  .HasForeignKey(h => h.ParentId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(h => h.Child)
+                  .WithMany(r => r.ListParents)
+                  .HasForeignKey(h => h.ChildId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Navigation(h => h.Parent).AutoInclude();
+            entity.Navigation(h => h.Child).AutoInclude();
         });
+
 
         _ = builder.Entity<T3IdentityClaim>(entity =>
         {
@@ -143,6 +158,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                       .WithOne(f => f.Module)
                       .HasForeignKey<T3Form>(f => f.Id)
                       .OnDelete(DeleteBehavior.Restrict);
+
+            _ = entity.Property(x => x.Name)
+                      .HasMaxLength(256) 
+                      .UseCollation("Turkish_CI_AS");
+
+            _ = entity.HasIndex(x => x.Name)
+                      .HasDatabaseName("UX_T3Module_Name")
+                      .IsUnique();
         });
 
         _ = builder.Entity<T3ModuleHierarchy>(entity =>
@@ -155,8 +178,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                                            .OnDelete(DeleteBehavior.Restrict);
             _ = entity.HasIndex(p => p.ParentId);
             _ = entity.HasIndex(p => p.ChildId);
+            _= entity.Navigation(e => e.Parent).AutoInclude();
+            _= entity.Navigation(e => e.Child).AutoInclude();
         });
-
+         
         _ = builder.Entity<T3Item>(entity =>
         {
             _ = entity.HasIndex(p => p.ModuleId);
@@ -177,33 +202,40 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                       .WithMany(p => p.ListItems)
                       .HasForeignKey(p => p.LocationId)
                       .OnDelete(DeleteBehavior.Cascade);
-
+             
             _ = entity.HasOne(i => i.Template)
-                      .WithOne(t => t.Item)
+                      .WithOne()  
                       .HasForeignKey<T3Template>(t => t.Id)
+                      .HasPrincipalKey<T3Item>(i => i.Id)
                       .OnDelete(DeleteBehavior.Restrict);
-
-            _ = entity.HasOne(m => m.Form)
+             
+            _ = entity.HasOne(i => i.Form)
                       .WithOne(f => f.Item)
                       .HasForeignKey<T3Form>(f => f.Id)
+                      .HasPrincipalKey<T3Item>(i => i.Id)
                       .OnDelete(DeleteBehavior.Restrict);
         });
 
-        _ = builder.Entity<T3ItemHierarchy>(entity =>
+
+        builder.Entity<T3ItemHierarchy>(entity =>
         {
-            _ = entity.HasKey(ur => new { ur.ParentId, ur.ChildId });
+            // Tekil Id PK, (ParentId, ChildId) unique
+            entity.HasIndex(h => new { h.ParentId, h.ChildId }).IsUnique();
 
-            _ = entity.HasOne(p => p.Parent).WithMany(p => p.ListChilds)
-                                            .HasForeignKey(p => p.ParentId)
-                                            .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(h => h.Parent)
+                  .WithMany(i => i.ListChilds)
+                  .HasForeignKey(h => h.ParentId)
+                  .OnDelete(DeleteBehavior.Restrict);
 
-            _ = entity.HasOne(p => p.Child).WithMany(p => p.ListParents)
-                                           .HasForeignKey(p => p.ChildId)
-                                           .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(h => h.Child)
+                  .WithMany(i => i.ListParents)
+                  .HasForeignKey(h => h.ChildId)
+                  .OnDelete(DeleteBehavior.Restrict);
 
-            _ = entity.HasIndex(p => p.ParentId);
-            _ = entity.HasIndex(p => p.ChildId);
+            entity.Navigation(h => h.Parent).AutoInclude();
+            entity.Navigation(h => h.Child).AutoInclude();
         });
+
 
         _ = builder.Entity<T3ProcessType>(entity =>
         {
@@ -271,6 +303,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
             _ = entity.HasIndex(p => p.ParentId);
             _ = entity.HasIndex(p => p.ChildId);
+            _ = entity.Navigation(e => e.Parent).AutoInclude();
+            _ = entity.Navigation(e => e.Child).AutoInclude();
         });
 
         _ = builder.Entity<T3LocationItem>(entity =>
@@ -510,5 +544,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         });
 
         #endregion
+    }
+}
+
+public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
+{
+    public ApplicationDbContext CreateDbContext(string[] args)
+    {
+        DbContextOptionsBuilder<ApplicationDbContext> optionsBuilder = new();
+        _ = optionsBuilder.UseSqlServer("Server=.;Initial Catalog=DBProskon;User ID=t3;Password=X-XP+45qAZrc+VmYLVB;Connect Timeout=60;MultipleActiveResultSets=True;TrustServerCertificate=true;");
+        return new ApplicationDbContext(optionsBuilder.Options);
     }
 }

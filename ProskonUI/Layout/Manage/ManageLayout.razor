@@ -1,4 +1,6 @@
-﻿@inherits LayoutComponentBase
+﻿@inherits ProskonLayoutBase
+ 
+<link href="/css/sidebar.css" rel="stylesheet" />
 
 <AppBar OnToggleSidebar="ToggleSidebar" />
 
@@ -9,6 +11,9 @@
         @Body
     </main>
 </div>
+
+<ToastHost />
+
 
 @code {
     private bool _isSidebarOpen = false; // ilk yükte kapalı başlatmak genelde daha doğal

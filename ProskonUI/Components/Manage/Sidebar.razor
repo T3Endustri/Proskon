@@ -1,9 +1,6 @@
-﻿@using Syncfusion.Blazor.Navigations
-@using _02_Application.Services
-@inject IModuleService ModuleService
-@inject IUserService UserService
-@inject IClaimService ClaimService
-@inject NavigationManager Navigation
+﻿@using _02_Application.Dtos
+@using Syncfusion.Blazor.Navigations
+@inherits ProskonComponentBase
 
 <SfSidebar Target="#layout-container"
            EnableDock="true"
@@ -12,135 +9,103 @@
            EnablePersistence="true"
            Type="SidebarType.Push"
            @bind-IsOpen="IsOpen"
-           Width="50vh">
+           Width="260px"
+           MediaQuery="(max-width: 768px)">
+
     <SfSidebarContainer>
         <ChildContent>
             <!-- Statik Menü -->
             <div class="sidebar-static-item">
-                <a href="/dashboard" class="sidebar-link">
-                    <i class="bi bi-house"></i> Dashboard
+                <a href="/manage/dashboard" class="sidebar-link @(Navigation.Uri.Contains("/dashboard") ? "active" : null)" title="Dashboard">
+                    <i class="bi bi-speedometer2 text-bg-secondary"></i>
+                    <span class="sidebar-text">Dashboard</span>
                 </a>
             </div>
 
             <!-- Dinamik Menü -->
-            @if (Modules is not null)
+            @if (Modules is not null && Modules.Count > 0)
             {
                 @foreach (var module in Modules)
                 {
                     @RenderModule(module)
                 }
             }
+
+            <div class="sidebar-static-item">
+                <a href="/manage/roles" class="sidebar-link @(Navigation.Uri.Contains("/roles") ? "active" : null)" title="Dashboard">
+                    <i class="bi bi-diagram-2-fill text-bg-secondary"></i>
+                    <span class="sidebar-text">Roller</span>
+                </a>
+            </div>
+
         </ChildContent>
     </SfSidebarContainer>
 </SfSidebar>
 
 @code {
-    SfSidebar sidebarObj = default!;
+    private SfSidebar sidebarObj = default!;
+
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
 
-    private List<ModuleTreeDto> Modules = [];
+    private List<ModuleTreeDto> Modules = new();
 
     protected override async Task OnInitializedAsync()
-    {
-        var user = await UserService.GetByIdAsync(CurrentUserId); // bu id dışarıdan alınmalı veya ClaimsPrincipal ile çözülmeli
-        
-        if (user is null)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-        
-        var userClaims = await ClaimService.GetByUserIdAsync(user.Id);
-        var moduleTree = await ModuleService.GetTreeAsync();
-
-        // sadece kullanıcının claim'lerinde olan modüller ve sayfa açılabilenler
-        Modules = FilterModulesByClaims(moduleTree, userClaims.Select(c => c.Value).ToHashSet());
+    { 
+        Modules = await ModuleService.GetTreeForCurrentAsync();
+         
+        SubscribeLocationChanged((_, __) => _ = SafeStateHasChangedAsync());
     }
 
-    private List<ModuleTreeDto> FilterModulesByClaims(List<ModuleTreeDto> modules, HashSet<string> claimValues)
-    {
-        List<ModuleTreeDto> result = [];
-
-        foreach (var module in modules)
-        {
-            if (module.IsCanPage && claimValues.Contains(module.Id.ToString()))
-            {
-                var filteredChildren = FilterModulesByClaims(module.Children, claimValues);
-                result.Add(new ModuleTreeDto
-                {
-                    Id = module.Id,
-                    Name = module.Name,
-                    PageText = module.PageText,
-                    ColorBack = module.ColorBack,
-                    ColorFore = module.ColorFore,
-                    IconMultiple = module.IconMultiple,
-                    IsCanPage = true,
-                    Children = filteredChildren
-                });
-            }
-            else
-            {
-                // çocuklarından biri yetkiliyse yine ekle
-                var filteredChildren = FilterModulesByClaims(module.Children, claimValues);
-                if (filteredChildren.Count > 0)
-                {
-                    result.Add(new ModuleTreeDto
-                    {
-                        Id = module.Id,
-                        Name = module.Name,
-                        PageText = module.PageText,
-                        ColorBack = module.ColorBack,
-                        ColorFore = module.ColorFore,
-                        IconMultiple = module.IconMultiple,
-                        IsCanPage = false,
-                        Children = filteredChildren
-                    });
-                }
-            }
-        }
-
-        return result;
-    }
-
-    RenderFragment RenderModule(ModuleTreeDto module) => builder =>
+    RenderFragment RenderModule(ModuleTreeDto module, int depth = 0) => builder =>
     {
         int seq = 0;
-        string icon = $"bi bi-{GetIconName(module.IconMultiple)}";
+        string icon = $"bi {GetIconName(module.IconMultiple)}";
 
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "sidebar-dynamic-item");
 
         builder.OpenElement(seq++, "a");
-        builder.AddAttribute(seq++, "class", "sidebar-link");
-        builder.AddAttribute(seq++, "style", $"color:{module.ColorFore}; background-color:{module.ColorBack};");
+        builder.AddAttribute(seq++, "class", $"sidebar-link{(IsActive(module) ? " active" : "")}");
+         
+        builder.AddAttribute(seq++, "style", $"--depth:{depth}; --icon-color:{module.ColorFore};");
+
         builder.AddAttribute(seq++, "href", $"/module/{module.Id}");
+        builder.AddAttribute(seq++, "title", module.PageText);
 
         builder.OpenElement(seq++, "i");
+        builder.AddAttribute(seq++, "style", $"background-color:{module.ColorBack}; color:{module.ColorFore};");
         builder.AddAttribute(seq++, "class", icon);
         builder.CloseElement(); // i
 
-        builder.AddContent(seq++, $" {module.PageText}");
+        builder.OpenElement(seq++, "span");
+        builder.AddAttribute(seq++, "class", "sidebar-text");
+        builder.AddContent(seq++, module.PageText);
+        builder.CloseElement(); // span
+
         builder.CloseElement(); // a
 
-        // alt modülleri varsa iç içe render et
         if (module.Children is not null && module.Children.Count > 0)
         {
             foreach (var child in module.Children)
             {
-                builder.AddContent(seq++, RenderModule(child));
+                builder.AddContent(seq++, RenderModule(child, depth + 1));
             }
         }
 
         builder.CloseElement(); // div
     };
 
-    private string GetIconName(int iconMultiple)
+    private bool IsActive(ModuleTreeDto module)
     {
-        var name = ((_02_Application.Services.IconName)iconMultiple).ToString().Replace("_", "-").ToLowerInvariant();
-        return name;
+        var uri = Navigation.Uri;
+        return uri.Contains($"/module/{module.Id}", StringComparison.OrdinalIgnoreCase);
     }
 
-    private Guid CurrentUserId => // burada geçerli kullanıcının Id'sini bulmalısın
-        Guid.Parse("00000000-0000-0000-0000-000000000001"); // örnek olarak sabit verdim
+    private string GetIconName(int iconMultiple)
+    {
+        var name = ((_02_Application.Services.IconName)iconMultiple).ToString()
+            .Replace("_", "-").ToLowerInvariant();
+        return name;
+    }
 }

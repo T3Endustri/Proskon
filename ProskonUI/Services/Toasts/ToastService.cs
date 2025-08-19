@@ -1,4 +1,4 @@
-﻿namespace ProskonUI.Services;
+﻿namespace ProskonUI.Services.Toasts;
 
 public enum ToastType { Info, Success, Warning, Error }
 

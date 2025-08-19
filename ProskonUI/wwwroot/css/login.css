@@ -17,18 +17,7 @@ body {
     position: relative;
     width: 400px;
 }
-
-h2 {
-    font-size: 2em;
-    color: #fff;
-    text-align: center;
-    width: 100%;
-    margin-bottom: 40px;
-    font-weight: 600;
-    letter-spacing: 4px;
-    text-transform: uppercase;
-}
-
+ 
 .container .form {
     position: relative;
     width: 100%;
@@ -50,8 +39,7 @@ h2 {
             outline: none;
             background: #282626;
             color: #fff;
-            font-size: 1em;
-            text-transform: uppercase;
+            font-size: 1em; 
             letter-spacing: 2px;
             font-weight: 400;
             border: 2px solid #000;

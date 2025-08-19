@@ -1,0 +1,66 @@
+﻿@inherits ProskonUI.Framework.Base.ProskonComponentBase
+@inject HttpClient Http
+@using Syncfusion.Blazor.SplitButtons
+@inject IJSRuntime JS
+
+
+<link href="/css/usermenu.css" rel="stylesheet" />
+
+<div class="user-menu">
+    @if (!string.IsNullOrWhiteSpace(CurrentUser.User?.PhotoUrl))
+    {
+        <img class="avatar" src="@CurrentUser.User!.PhotoUrl" alt="avatar" />
+    }
+    else
+    {
+        <i class="bi bi-person fs-24" />
+    }
+
+    <SfDropDownButton CssClass="ddb e-caret-hide"
+                      Content="@UserFullName">
+        <DropDownMenuItems>
+            <DropDownMenuItem Id="settings" Text="Ayarlar" IconCss="bi bi-gear"></DropDownMenuItem>
+            <DropDownMenuItem Separator="true"></DropDownMenuItem>
+            <DropDownMenuItem Id="logout" Text="Çıkış" IconCss="bi bi-box-arrow-in-right"></DropDownMenuItem>
+        </DropDownMenuItems>
+
+        <DropDownButtonEvents ItemSelected="OnItemSelected" />
+    </SfDropDownButton>
+</div>
+
+@code {
+    private string UserFullName =>
+        CurrentUser.User is null
+            ? "Misafir"
+            : ($"{CurrentUser.User.FirstName} {CurrentUser.User.LastName}").Trim();
+
+    private async Task OnItemSelected(MenuEventArgs args)
+    {
+        try
+        {
+            var id = args.Item?.Id?.ToLowerInvariant();
+            var text = args.Item?.Text?.Trim();
+
+            switch (id ?? text?.ToLowerInvariant())
+            {
+                case "settings":
+                case "ayarlar":
+                    Navigation.NavigateTo("/settings");
+                    break;
+
+                case "logout":
+                case "çıkış":
+                    // 🔴 Tarayıcıdan POST at: cookie temizlensin
+                    var ok = await JS.InvokeAsync<bool>("proskon.signOut");
+                    // 🔁 Tam sayfa yenile + doğru rota (Login sayfan @page "/login")
+                    Navigation.NavigateTo("/login", forceLoad: true);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("User Menu => OnItemSelected", $"İşlem başarısız: {ex}");
+            await Toast.Error("Çıkış yapılamadı", "Lütfen tekrar deneyin.");
+        }
+    }
+}

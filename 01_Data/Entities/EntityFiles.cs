@@ -1,8 +1,18 @@
-﻿using _01_Data.Entities.Base;
+﻿using _01_Data.Utilities;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace _01_Data.Entities;
+
+public abstract class BaseEntity
+{
+    [Key]
+    [Required]
+    public Guid Id { get; set; } = T3Helper.NewSequentialGuid();
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = default!;
+}
 
 public class T3Protocol : BaseEntity
 {
@@ -10,19 +20,30 @@ public class T3Protocol : BaseEntity
     public string Name { get; set; } = string.Empty;
     public long Target { get; set; } = 0;
     public int SortBy { get; set; } = 100;
+
+    [ForeignKey(nameof(ProcessTypeId))]
     public T3ProcessType ProcessType { get; set; } = default!;
+
     public List<T3ProtocolItem> ListProtocolItems { get; set; } = [];
 }
+
 public class T3ProtocolItem : BaseEntity
 {
     public Guid ProtocolId { get; set; }
     public Guid ItemId { get; set; }
     public Guid LocationId { get; set; }
     public long Target { get; set; } = 0;
+
+    [ForeignKey(nameof(ProtocolId))]
     public T3Protocol Protocol { get; set; } = default!;
+
+    [ForeignKey(nameof(ItemId))]
     public T3Item Item { get; set; } = default!;
+
+    [ForeignKey(nameof(LocationId))]
     public T3Location Location { get; set; } = default!;
 }
+
 public class T3Item : BaseEntity
 {
     public Guid ModuleId { get; set; }
@@ -37,26 +58,43 @@ public class T3Item : BaseEntity
     public short Status { get; set; } = 0;
     public int SortBy { get; set; } = 100;
 
-    [ForeignKey(nameof(Id))] public T3Template? Template { get; set; }
-    [ForeignKey(nameof(Id))] public T3Form? Form { get; set; }
+    public T3Template? Template { get; set; }
+    public T3Form? Form { get; set; }
 
-    [ForeignKey(nameof(LocationId))] public T3Location? Location { get; set; }
-    [ForeignKey(nameof(ModuleId))] public T3Module Module { get; set; } = default!;
-    [ForeignKey(nameof(ModuleTypeId))] public T3Module ModuleType { get; set; } = default!;
+    [ForeignKey(nameof(LocationId))]
+    public T3Location? Location { get; set; }
+
+    [ForeignKey(nameof(ModuleId))]
+    public T3Module Module { get; set; } = default!;
+
+    [ForeignKey(nameof(ModuleTypeId))]
+    public T3Module? ModuleType { get; set; } // <-- nullable FK => nullable nav
 
     public ICollection<T3ProtocolItem> ListProtocols { get; set; } = [];
+
+    // Hierarchy: tek yönlerin doğru eşleşmesi için InverseProperty
+    [InverseProperty(nameof(T3ItemHierarchy.Child))]
     public ICollection<T3ItemHierarchy> ListParents { get; set; } = [];
+
+    [InverseProperty(nameof(T3ItemHierarchy.Parent))]
     public ICollection<T3ItemHierarchy> ListChilds { get; set; } = [];
+
     public ICollection<T3LocationItem> ListLocations { get; set; } = [];
     public ICollection<T3ProcessTypeItem> ListProcessTypes { get; set; } = [];
 }
+
 public class T3ItemHierarchy : BaseEntity
 {
     public Guid ParentId { get; set; }
     public Guid ChildId { get; set; }
+
+    [ForeignKey(nameof(ParentId))]
     public T3Item Parent { get; set; } = default!;
+
+    [ForeignKey(nameof(ChildId))]
     public T3Item Child { get; set; } = default!;
 }
+
 public class T3Module : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
@@ -75,22 +113,37 @@ public class T3Module : BaseEntity
     public string ColorFore { get; set; } = string.Empty;
     public int SortBy { get; set; } = 100;
 
-    [ForeignKey(nameof(Id))] public T3Template? Template { get; set; }
-    [ForeignKey(nameof(Id))] public T3Form? Form { get; set; }
+    // Bu shared-PK 1:1 kurulumlar projendeki OnModelCreating ile yönetilecekse kalabilir;
+    // burada sadece isim uyumunu koruyoruz.
+    [ForeignKey(nameof(Id))]
+    public T3Template? Template { get; set; }
 
+    [ForeignKey(nameof(Id))]
+    public T3Form? Form { get; set; }
+
+    [InverseProperty(nameof(T3ModuleHierarchy.Child))]
     public ICollection<T3ModuleHierarchy> ListParents { get; set; } = [];
+
+    [InverseProperty(nameof(T3ModuleHierarchy.Parent))]
     public ICollection<T3ModuleHierarchy> ListChilds { get; set; } = [];
+
     public ICollection<T3Item> ListItems { get; set; } = [];
     public ICollection<T3Item> ListModuleTypeItems { get; set; } = [];
     public ICollection<T3ProcessTypeModule> ListProcessTypes { get; set; } = [];
 }
+
 public class T3ModuleHierarchy : BaseEntity
 {
     public Guid ParentId { get; set; }
     public Guid ChildId { get; set; }
+
+    [ForeignKey(nameof(ParentId))]
     public T3Module Parent { get; set; } = default!;
+
+    [ForeignKey(nameof(ChildId))]
     public T3Module Child { get; set; } = default!;
 }
+
 public class T3ProcessType : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
@@ -101,54 +154,75 @@ public class T3ProcessType : BaseEntity
     public string ColorFore { get; set; } = string.Empty;
     public long Target { get; set; } = 0;
     public int SortBy { get; set; } = 100;
+
     public List<T3ProcessTypeModule> ListModules { get; set; } = [];
     public List<T3ProcessTypeItem> ListItems { get; set; } = [];
     public List<T3Protocol> ListProtocols { get; set; } = [];
 }
+
 public class T3ProcessTypeItem : BaseEntity
 {
     public Guid TypeId { get; set; }
     public Guid ItemId { get; set; }
+
+    [ForeignKey(nameof(TypeId))]
     public T3ProcessType ProcessType { get; set; } = default!;
+
+    [ForeignKey(nameof(ItemId))]
     public T3Item Item { get; set; } = default!;
 }
+
 public class T3ProcessTypeModule : BaseEntity
 {
     public Guid TypeId { get; set; }
     public Guid ModuleId { get; set; }
+
+    [ForeignKey(nameof(TypeId))]
     public T3ProcessType ProcessType { get; set; } = default!;
+
+    [ForeignKey(nameof(ModuleId))]
     public T3Module Module { get; set; } = default!;
 }
-public class T3Location : BaseEntity
-{
-    public string Name { get; set; } = string.Empty;
-    public string Barcode { get; set; } = string.Empty;
-    public int SortBy { get; set; } = 100;
-    public int OperationNo { get; set; } = 0;
-    public bool IsStation { get; set; }
-    public List<T3LocationHierarchy> ListParents { get; set; } = [];
-    public List<T3LocationHierarchy> ListChilds { get; set; } = [];
-    public List<T3Item> ListItems { get; set; } = [];
-    public List<T3LocationItem> ListLocationItems { get; set; } = [];
-    public List<T3ShiftTypeLocation> ListShiftTypes { get; set; } = [];
-    public List<T3Shift> ListShifts { get; set; } = [];
-    public List<T3ProtocolItem> ListProtocolItems { get; set; } = [];
 
+public class T3Location : BaseEntity 
+{ 
+    public string Name { get; set; } = string.Empty; 
+    public string Barcode { get; set; } = string.Empty; 
+    public int SortBy { get; set; } = 100; 
+    public int OperationNo { get; set; } = 0; 
+    public bool IsStation { get; set; } 
+    public List<T3LocationHierarchy> ListParents { get; set; } = []; 
+    public List<T3LocationHierarchy> ListChilds { get; set; } = []; 
+    public List<T3Item> ListItems { get; set; } = []; 
+    public List<T3LocationItem> ListLocationItems { get; set; } = []; 
+    public List<T3ShiftTypeLocation> ListShiftTypes { get; set; } = []; 
+    public List<T3Shift> ListShifts { get; set; } = []; 
+    public List<T3ProtocolItem> ListProtocolItems { get; set; } = []; 
 }
+
 public class T3LocationHierarchy : BaseEntity
 {
     public Guid ParentId { get; set; }
     public Guid ChildId { get; set; }
+
+    [ForeignKey(nameof(ParentId))]
     public T3Location Parent { get; set; } = default!;
+
+    [ForeignKey(nameof(ChildId))]
     public T3Location Child { get; set; } = default!;
 }
+
 public class T3LocationItem : BaseEntity
 {
-    public Guid ItemId { get; set; } = default!;
-    public Guid LocationId { get; set; } = default!;
+    public Guid ItemId { get; set; }
+    public Guid LocationId { get; set; }
     public DateTime Entry { get; set; } = DateTime.Now;
     public DateTime? Exit { get; set; }
+
+    [ForeignKey(nameof(ItemId))]
     public T3Item Item { get; set; } = default!;
+
+    [ForeignKey(nameof(LocationId))]
     public T3Location Location { get; set; } = default!;
 }
 
@@ -159,10 +233,14 @@ public class T3IdentityClaim : BaseEntity
     public short PermissionType { get; set; }
     public string Type { get; set; } = string.Empty;
     public string Value { get; set; } = string.Empty;
-    public T3IdentityRole? Role { get; set; } = default!;
-    public T3IdentityUser? User { get; set; } = default!;
 
+    [ForeignKey(nameof(RoleId))]
+    public T3IdentityRole? Role { get; set; }
+
+    [ForeignKey(nameof(UserId))]
+    public T3IdentityUser? User { get; set; }
 }
+
 public class T3IdentityRole : BaseEntity
 {
     [Required] public string Name { get; set; } = string.Empty;
@@ -170,20 +248,30 @@ public class T3IdentityRole : BaseEntity
     [Required] public bool IsActive { get; set; } = true;
     [Required] public bool IsTeam { get; set; } = false;
     [Required] public bool IsDepartment { get; set; } = false;
+
+    [InverseProperty(nameof(T3IdentityRoleHierarchy.Child))]
     public ICollection<T3IdentityRoleHierarchy> ListParents { get; set; } = [];
+
+    [InverseProperty(nameof(T3IdentityRoleHierarchy.Parent))]
     public ICollection<T3IdentityRoleHierarchy> ListChilds { get; set; } = [];
+
     public ICollection<T3IdentityUserRole> ListUsers { get; set; } = [];
     public ICollection<T3IdentityClaim> ListClaims { get; set; } = [];
     public ICollection<T3TemplateApprover> ListApproveTemplates { get; set; } = [];
-
 }
+
 public class T3IdentityRoleHierarchy : BaseEntity
 {
     [Required] public Guid ParentId { get; set; }
     [Required] public Guid ChildId { get; set; }
+
+    [ForeignKey(nameof(ParentId))]
     public T3IdentityRole Parent { get; set; } = default!;
+
+    [ForeignKey(nameof(ChildId))]
     public T3IdentityRole Child { get; set; } = default!;
 }
+
 public class T3IdentityUser : BaseEntity
 {
     [Required] public string UserId { get; set; } = string.Empty;
@@ -195,6 +283,7 @@ public class T3IdentityUser : BaseEntity
     [Required] public string StartPage { get; set; } = string.Empty;
     [Required] public bool IsActive { get; set; } = true;
     [Required] public string PhotoUrl { get; set; } = string.Empty;
+
     public ICollection<T3Form> ListFormCreates { get; set; } = [];
     public ICollection<T3Form> ListFormApproveds { get; set; } = [];
     public ICollection<T3TemplateApprover> ListApproveTemplates { get; set; } = [];
@@ -202,11 +291,16 @@ public class T3IdentityUser : BaseEntity
     public ICollection<T3IdentityUserRole> ListRoles { get; set; } = [];
     public ICollection<T3IdentityClaim> ListClaims { get; set; } = [];
 }
+
 public class T3IdentityUserRole : BaseEntity
 {
-    [Required] public Guid UserId { get; set; } = default!;
-    [Required] public Guid RoleId { get; set; } = default!;
+    [Required] public Guid UserId { get; set; }
+    [Required] public Guid RoleId { get; set; }
+
+    [ForeignKey(nameof(UserId))]
     public T3IdentityUser User { get; set; } = default!;
+
+    [ForeignKey(nameof(RoleId))]
     public T3IdentityRole Role { get; set; } = default!;
 }
 
@@ -217,39 +311,61 @@ public class T3Form : BaseEntity
     public Guid? ApprovedUserId { get; set; }
     public bool IsApprove { get; set; } = false;
     public DateTime CreateTime { get; set; } = DateTime.Now;
-    [ForeignKey(nameof(Id))] public T3Item? Item { get; set; }
-    [ForeignKey(nameof(Id))] public T3Module? Module { get; set; }
+
+    public T3Item? Item { get; set; }
+    public T3Module? Module { get; set; }
+
+    [ForeignKey(nameof(TemplateId))]
     public T3Template Template { get; set; } = default!;
+
+    [ForeignKey(nameof(CreateUserId))]
     public T3IdentityUser CreateUser { get; set; } = default!;
+
+    [ForeignKey(nameof(ApprovedUserId))]
     public T3IdentityUser? ApprovedUser { get; set; }
+
     public List<T3FormField> ListFormFields { get; set; } = [];
 }
+
 public class T3FormField : BaseEntity
 {
     public Guid FormId { get; set; }
     public Guid PropertyFieldId { get; set; }
+
+    [ForeignKey(nameof(FormId))]
     public T3Form Form { get; set; } = default!;
+
+    [ForeignKey(nameof(PropertyFieldId))]
     public T3Property PropertyField { get; set; } = default!;
+
     public List<T3FormFieldValue> ListValues { get; set; } = [];
 }
+
 public class T3FormFieldValue : BaseEntity
 {
     public Guid FormFieldId { get; set; }
     public Guid UserId { get; set; }
     public DateTime CreateTime { get; set; } = DateTime.Now;
     public string Value { get; set; } = string.Empty;
+
+    [ForeignKey(nameof(UserId))]
     public T3IdentityUser CreateUser { get; set; } = default!;
+
+    [ForeignKey(nameof(FormFieldId))]
     public T3FormField FormField { get; set; } = default!;
 }
+
 public class T3FormResource : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
     public short DataType { get; set; } = 0;
     public bool IsSystemDefined { get; set; } = false;
     public bool AllowMultipleSelection { get; set; } = false;
+
     public ICollection<T3FormResourceItem> ListItems { get; set; } = [];
     public ICollection<T3Property> ListProperties { get; set; } = [];
 }
+
 public class T3FormResourceItem : BaseEntity
 {
     public Guid ResourceId { get; set; }
@@ -257,7 +373,9 @@ public class T3FormResourceItem : BaseEntity
     public string Value { get; set; } = string.Empty;
     public int SortBy { get; set; } = 0;
     public bool IsActive { get; set; } = true;
-    public T3FormResource T3DataResource { get; set; } = default!;
+
+    [ForeignKey(nameof(ResourceId))]
+    public T3FormResource FormResource { get; set; } = default!;
 }
 
 public class T3Property : BaseEntity
@@ -277,32 +395,47 @@ public class T3Property : BaseEntity
     public string FileTypes { get; set; } = string.Empty;
     public bool FileMultiple { get; set; } = false;
     public bool IsRequired { get; set; } = false;
+
+    [ForeignKey(nameof(FormResourceId))]
     public T3FormResource? FormResource { get; set; }
+
     public ICollection<T3FormField> ListFormFields { get; set; } = [];
     public ICollection<T3PropertyTemplate> ListTemplates { get; set; } = [];
     public ICollection<T3PropertyPanel> ListPanels { get; set; } = [];
 }
+
 public class T3PropertyPanel : BaseEntity
 {
     public Guid PropertyFieldId { get; set; }
     public Guid PanelId { get; set; }
     public int Column { get; set; } = 1;
     public int SortBy { get; set; } = 100;
+
+    [ForeignKey(nameof(PropertyFieldId))]
     public T3Property PropertyField { get; set; } = default!;
+
+    [ForeignKey(nameof(PanelId))]
     public T3TemplatePanel Panel { get; set; } = default!;
 }
+
 public class T3PropertyTemplate : BaseEntity
 {
     public Guid PropertyFieldId { get; set; }
     public Guid TemplateId { get; set; }
     public int Column { get; set; } = 1;
     public int SortBy { get; set; } = 1;
+
+    [ForeignKey(nameof(PropertyFieldId))]
     public T3Property PropertyField { get; set; } = default!;
+
+    [ForeignKey(nameof(TemplateId))]
     public T3Template Template { get; set; } = default!;
 }
+
 public class T3Template : BaseEntity
 {
     public int ColumnCount { get; set; } = 1;
+
     public T3Module? Module { get; set; }
     public T3Item? Item { get; set; }
 
@@ -311,23 +444,35 @@ public class T3Template : BaseEntity
     public List<T3TemplateApprover> ListApprovers { get; set; } = [];
     public List<T3PropertyTemplate> ListPropertyFields { get; set; } = [];
 }
+
 public class T3TemplateApprover : BaseEntity
 {
     public Guid TemplateId { get; set; }
     public Guid? UserId { get; set; }
     public Guid? RoleId { get; set; }
+
+    [ForeignKey(nameof(TemplateId))]
     public T3Template Template { get; set; } = default!;
+
+    [ForeignKey(nameof(UserId))]
     public T3IdentityUser? User { get; set; }
+
+    [ForeignKey(nameof(RoleId))]
     public T3IdentityRole? Role { get; set; }
 }
+
 public class T3TemplatePanel : BaseEntity
 {
     public Guid TemplateId { get; set; }
     public string Name { get; set; } = string.Empty;
     public int SortBy { get; set; }
+
+    [ForeignKey(nameof(TemplateId))]
     public T3Template Template { get; set; } = default!;
+
     public ICollection<T3PropertyPanel> ListPropertyFields { get; set; } = [];
 }
+
 public partial class T3Shift() : BaseEntity
 {
     public Guid LocationId { get; set; }
@@ -336,24 +481,33 @@ public partial class T3Shift() : BaseEntity
     public DateTime? End { get; set; }
     public DateTime Finish { get; set; }
     public int Target { get; set; } = 0;
+
+    [ForeignKey(nameof(LocationId))]
     public T3Location Location { get; set; } = default!;
+
     public List<T3ShiftBreak> ListBreaks { get; set; } = [];
 }
+
 public partial class T3ShiftBreak() : BaseEntity
 {
     public Guid ShiftId { get; set; }
     public string Name { get; set; } = string.Empty;
     public DateTime Start { get; set; }
     public DateTime End { get; set; }
+
+    [ForeignKey(nameof(ShiftId))]
     public T3Shift Shift { get; set; } = default!;
 }
+
 public partial class T3ShiftType : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+
     public ICollection<T3ShiftTypeDay> ListDays { get; set; } = [];
     public ICollection<T3ShiftTypeLocation> ListLocations { get; set; } = [];
 }
+
 public partial class T3ShiftTypeBreak : BaseEntity
 {
     public Guid ShiftTypeDayId { get; set; }
@@ -361,22 +515,30 @@ public partial class T3ShiftTypeBreak : BaseEntity
     public string Description { get; set; } = null!;
     public long StartTime { get; set; }
     public long EndTime { get; set; }
+
+    [ForeignKey(nameof(ShiftTypeDayId))]
     public T3ShiftTypeDay ShiftTypeDay { get; set; } = null!;
 }
+
 public partial class T3ShiftTypeCategory : BaseEntity
 {
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
 }
+
 public partial class T3ShiftTypeDay : BaseEntity
 {
     public Guid ShiftTypeId { get; set; }
     public byte DayOfWeek { get; set; }
     public long StartTime { get; set; }
     public long EndTime { get; set; }
+
+    [ForeignKey(nameof(ShiftTypeId))]
     public T3ShiftType ShiftType { get; set; } = null!;
+
     public ICollection<T3ShiftTypeBreak> T3ShiftTypeBreaks { get; set; } = [];
 }
+ 
 public partial class T3ShiftTypeLocation : BaseEntity
 {
     public Guid ShiftTypeId { get; set; }

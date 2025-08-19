@@ -1,10 +1,6 @@
-﻿@page "/manage/dashboard"
+﻿@page "/"
 @layout ManageLayout
+@inherits ProskonPageBase 
 @rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin,Manager")]
 
-<h3>Manager Dashboard</h3>
-<p>Bu sayfa sadece Manager rolüne sahip kullanıcılarca görülebilir.</p>
- 
-@code {
-     
-}

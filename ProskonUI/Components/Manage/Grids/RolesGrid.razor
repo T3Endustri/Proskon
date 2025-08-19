@@ -1,0 +1,554 @@
+﻿@inherits ProskonUI.Framework.Base.ProskonComponentBase
+@layout ManageLayout
+@using Syncfusion.Blazor.Grids
+@using Syncfusion.Blazor.Inputs
+@using Syncfusion.Blazor.DropDowns
+@using Syncfusion.Blazor.Popups
+@using Syncfusion.Blazor.Navigations
+@using Microsoft.AspNetCore.SignalR.Client
+@using ProskonUI.Shared.Realtime
+@using _02_Application.Dtos
+
+<SfGrid @ref="_grid"
+        DataSource="@_items"
+        AllowPaging="true" AllowSorting="true" AllowFiltering="true" AllowResizing="true"
+        Toolbar="@_toolbar"
+        TValue="RoleListDto"
+        AllowExcelExport="true">
+    <GridEvents TValue="RoleListDto"
+                OnActionBegin="OnActionBegin"
+                OnToolbarClick="OnToolbarClick" />
+    <GridEditSettings AllowAdding="AllowEdit"
+                      AllowEditing="AllowEdit"
+                      AllowDeleting="AllowEdit"
+                      Mode="EditMode.Dialog"
+                      Dialog="DialogParams">
+        <Template Context="dlg">
+            @{
+                var vm = _editVm;
+                var canShowParents = SetParentsAsync is not null;
+                var canShowChildren = SetChildrenAsync is not null;
+                var canShowUsers = SetUsersOfRoleAsync is not null || FetchUsersOfRoleAsync is not null;
+            }
+            <div class="space-y-4">
+                <div>
+                    <label class="block mb-1">Rol Adı</label>
+                    <SfTextBox @bind-Value="vm.Name" Placeholder="Örn: Admin" FloatLabelType="FloatLabelType.Always" />
+                </div>
+
+                <div>
+                    <label class="block mb-1">Başlangıç Sayfası</label>
+                    <SfTextBox @bind-Value="vm.StartPage" Placeholder="/dashboard" FloatLabelType="FloatLabelType.Always" />
+                </div>
+
+                @if (canShowParents || canShowChildren)
+                {
+                    <div class="border-t pt-3">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            @if (canShowParents)
+                            {
+                                <div>
+                                    <label class="block mb-1">Ebeveyn Roller</label>
+                                    <SfMultiSelect TItem="RoleListDto" TValue="List<Guid>"
+                                                   @bind-Value="vm.ParentIds"
+                                                   DataSource="@_roleOptionsForHierarchy"
+                                                   EnableVirtualization="true"
+                                                   AllowFiltering="true"
+                                                   Placeholder="Seçiniz"
+                                                   FloatLabelType="FloatLabelType.Always"
+                                                   PopupHeight="320px">
+                                        <MultiSelectFieldSettings Value="Id" Text="Name" />
+                                    </SfMultiSelect>
+                                </div>
+                            }
+                            @if (canShowChildren)
+                            {
+                                <div>
+                                    <label class="block mb-1">Çocuk Roller</label>
+                                    <SfMultiSelect TItem="RoleListDto" TValue="List<Guid>"
+                                                   @bind-Value="vm.ChildIds"
+                                                   DataSource="@_roleOptionsForHierarchy"
+                                                   EnableVirtualization="true"
+                                                   AllowFiltering="true"
+                                                   Placeholder="Seçiniz"
+                                                   FloatLabelType="FloatLabelType.Always"
+                                                   PopupHeight="320px">
+                                        <MultiSelectFieldSettings Value="Id" Text="Name" />
+                                    </SfMultiSelect>
+                                </div>
+                            }
+                        </div>
+                        @if (vm.Id == Guid.Empty && (canShowParents || canShowChildren))
+                        {
+                            <small class="text-gray-500">Not: Yeni rol için hiyerarşi kaydı, <b>oluşturma</b> sonrası uygulanır.</small>
+                        }
+                    </div>
+                }
+
+                @if (canShowUsers)
+                {
+                    <div class="border-t pt-3">
+                        <label class="block mb-1">Kullanıcılar</label>
+                        <SfMultiSelect TItem="UserOption" 
+                                       TValue="List<Guid>"
+                                       @bind-Value="_editVm.UserIds"
+                                       DataSource="@_userOptionsView"
+                                       EnableVirtualization="true"
+                                       AllowFiltering="true"
+                                       Placeholder="Seçiniz"
+                                       FloatLabelType="FloatLabelType.Always"
+                                       PopupHeight="320px">
+                            <MultiSelectFieldSettings Value="Value" Text="Text" />
+                        </SfMultiSelect>
+                    </div>
+                }
+            </div>
+        </Template>
+    </GridEditSettings>
+
+    <GridColumns>
+        <GridColumn Field=@nameof(RoleListDto.Name) HeaderText="Rol" Width="220" />
+        <GridColumn Field=@nameof(RoleListDto.ParentCsv) HeaderText="Ebeveynler" Width="360" />
+        <GridColumn Field=@nameof(RoleListDto.ChildCsv) HeaderText="Çocuklar" Width="360" />
+        <GridColumn Field=@nameof(RoleListDto.UserCsv) HeaderText="Kullanıcılar" Width="420" />
+    </GridColumns>
+</SfGrid>
+
+<SfDialog @bind-Visible="_detailsOpen"
+          ShowCloseIcon="true"
+          Header="Rol Detayları"
+          Width="720px"
+          IsModal="true">
+    @if (_detailsVm is not null)
+    {
+        <div class="space-y-4">
+            <div class="text-lg font-semibold">@_detailsVm.RoleName</div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                    <div class="font-medium mb-1">Ebeveyn Roller</div>
+                    <div class="flex flex-wrap gap-2">
+                        @if (_detailsVm.ParentNames.Count == 0)
+                        {
+                            <span class="text-gray-500">Yok</span>
+                        }
+                        else
+                        {
+                            @foreach (var p in @_detailsVm.ParentNames)
+                            {
+                                <span class="e-badge e-badge-info">@p</span>
+                            }
+                        }
+                    </div>
+                </div>
+                <div>
+                    <div class="font-medium mb-1">Çocuk Roller</div>
+                    <div class="flex flex-wrap gap-2">
+                        @if (_detailsVm.ChildNames.Count == 0)
+                        {
+                            <span class="text-gray-500">Yok</span>
+                        }
+                        else
+                        {
+                            @foreach (var c in @_detailsVm.ChildNames)
+                            {
+                                <span class="e-badge e-badge-success">@c</span>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t pt-3">
+                <div class="font-medium mb-2">Kullanıcılar</div>
+                <SfGrid TValue="UserListDto" DataSource="@_detailsUsers" AllowPaging="true" AllowSorting="true" Height="280">
+                    <GridColumns>
+                        <GridColumn Field=@nameof(UserListDto.UserId) HeaderText="ID" Width="220" />
+                        <GridColumn Field=@nameof(UserListDto.FirstName) HeaderText="Ad" Width="160" />
+                        <GridColumn Field=@nameof(UserListDto.LastName) HeaderText="Soyad" Width="220" />
+                    </GridColumns>
+                </SfGrid>
+            </div>
+        </div>
+    }
+</SfDialog>
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <div class="e-alert e-danger mt-3">@_error</div>
+}
+
+@code {
+    // ---------------- Parameters ----------------
+    [Parameter] public bool AllowEdit { get; set; } = true;
+
+    [Parameter, EditorRequired] public Func<Task<IReadOnlyList<RoleListDto>>> FetchListAsync { get; set; } = default!;
+    [Parameter, EditorRequired] public Func<Guid, Task<RoleDto>> FetchByIdAsync { get; set; } = default!;
+    [Parameter, EditorRequired] public Func<RoleDto, Task> CreateAsync { get; set; } = default!;
+    [Parameter, EditorRequired] public Func<RoleDto, Task> UpdateAsync { get; set; } = default!;
+    [Parameter, EditorRequired] public Func<Guid, Task> DeleteAsync { get; set; } = default!;
+
+    // Hiyerarşi (opsiyonel)
+    [Parameter] public Func<Guid, List<Guid>, Task>? SetParentsAsync { get; set; }
+    [Parameter] public Func<Guid, List<Guid>, Task>? SetChildrenAsync { get; set; }
+    [Parameter] public Func<Guid, Task<IReadOnlyList<Guid>>>? FetchParentIdsAsync { get; set; }
+    [Parameter] public Func<Guid, Task<IReadOnlyList<Guid>>>? FetchChildIdsAsync { get; set; }
+
+    // Rol Kullanıcıları (opsiyonel)
+    [Parameter] public Func<Task<IReadOnlyList<UserListDto>>>? FetchUserLookupAsync { get; set; }
+    [Parameter] public Func<Guid, Task<IReadOnlyList<UserListDto>>>? FetchUsersOfRoleAsync { get; set; }
+    [Parameter] public Func<Guid, List<Guid>, Task>? SetUsersOfRoleAsync { get; set; }
+
+    [Parameter] public EventCallback OnChanged { get; set; }
+     
+    // ---------------- State ----------------
+    private SfGrid<RoleListDto>? _grid;
+    private List<RoleListDto> _items = new();
+
+    private RoleEditVm _editVm = new();
+    private List<RoleListDto> _roleOptionsForHierarchy = new();
+    private string _error = string.Empty;
+    private bool _busy;
+
+    private DialogSettings DialogParams { get; } = new() { MinHeight = "420px", Width = "720px" };
+
+    // Toolbar (stabil referans + yetki)
+    private List<object> _toolbar = [];
+    private bool _toolbarForEdit;
+    private bool _canCreate, _canEdit, _canDelete, _canDetails;
+    private const string RolesClaimType = "Permission:Roles";
+    private bool IsAdmin() => CurrentUser.HasRole("Admin");
+    private bool HasPerm(string action) => CurrentUser.HasClaim(RolesClaimType, action);
+
+    private bool _detailsOpen;
+    private RoleDetailsVm _detailsVm = new();
+    private List<UserListDto> _detailsUsers = new();
+
+    private List<UserOption> _userOptionsView = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+
+        var hub = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/realtime"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hub.On(RealtimeEvents.RolesChanged, async () => { await ReloadAsync(); });
+
+        try { await hub.StartAsync(); }
+        catch (Exception ex) { Logger.LogWarning(ex, "Realtime bağlantısı başlatılamadı."); }
+
+        TrackAsync(hub);
+    }
+
+    protected override void OnParametersSet()
+    {
+        var isAdmin = IsAdmin();
+
+        _canCreate = AllowEdit && (isAdmin || HasPerm("New"));
+        _canEdit = AllowEdit && (isAdmin || HasPerm("Edit"));
+        _canDelete = AllowEdit && (isAdmin || HasPerm("Delete"));
+        _canDetails = (isAdmin || HasPerm("Details") || CurrentUser.IsAuthenticated);
+
+        if (_toolbar.Count == 0 || _toolbarForEdit != AllowEdit)
+        {
+            _toolbarForEdit = AllowEdit;
+            _toolbar = BuildToolbar();
+        }
+        else
+        {
+            _toolbar = BuildToolbar();
+        }
+    }
+
+    private List<object> BuildToolbar()
+    {
+        var list = new List<object>();
+
+        if (AllowEdit)
+        {
+            if (_canCreate) list.Add(new ItemModel { Id = "Add", Text = "Yeni", PrefixIcon = "bi bi-plus-lg", SuffixIcon = "bi bi-plus-lg", TooltipText = "Yeni kayıt" });
+            if (_canEdit) list.Add(new ItemModel { Id = "Edit", Text = "Düzenle", PrefixIcon = "bi bi-pencil", SuffixIcon = "bi bi-pencil", TooltipText = "Seçili kaydı düzenle" });
+            if (_canDelete) list.Add(new ItemModel { Id = "Delete", Text = "Sil", PrefixIcon = "bi bi-trash", SuffixIcon = "bi bi-trash", TooltipText = "Seçili kaydı sil" });
+            if (list.Count > 0) list.Add(new ItemModel { Type = ItemType.Separator });
+        }
+
+        list.Add(new ItemModel { Id = "Refresh", Text = "Yenile", PrefixIcon = "bi bi-arrow-clockwise", SuffixIcon = "bi bi-arrow-clockwise", TooltipText = "Tabloyu yenile" });
+
+        if (_canDetails)
+            list.Add(new ItemModel { Id = "RoleDetails", Text = "Detaylar", PrefixIcon = "bi bi-list-ul", SuffixIcon = "bi bi-list-ul", TooltipText = "Seçili rol detayları" });
+
+        list.Add(new ItemModel { Type = ItemType.Separator });
+        list.Add("Search");
+        return list;
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var (ok, list) = await SafeAsync(() => FetchListAsync());
+            if (ok && list is not null)
+            {
+                _items = list.ToList();
+                _roleOptionsForHierarchy = _items;
+            }
+
+            if (FetchUserLookupAsync is not null && _userOptionsView.Count == 0)
+            {
+                var (_, users) = await SafeAsync(() => FetchUserLookupAsync());
+                _userOptionsView = (users ?? Array.Empty<UserListDto>())
+                    .Where(u => u.Id != Guid.Empty)
+                    .DistinctBy(u => u.UserId)
+                    .Select(u => new UserOption
+                    {
+                        Value = u.Id,
+                        Text = $"{u.FirstName} {u.LastName}".Trim()
+                    })
+                    .ToList();
+            }
+        }
+        finally { _busy = false; }
+    }
+
+    // --------- Toolbar ---------
+    private async Task OnToolbarClick(Syncfusion.Blazor.Navigations.ClickEventArgs args)
+    {
+        var rawId = args.Item?.Id ?? string.Empty;
+        var id = rawId.Contains('_') ? rawId[(rawId.LastIndexOf('_') + 1)..] : rawId;
+        id = id.Trim();
+
+        if (id.Equals("refresh", StringComparison.OrdinalIgnoreCase))
+        {
+            await ReloadAsync();
+            return;
+        }
+
+        if (id.Equals("RoleDetails", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_canDetails) { await Toast.Warning("Yetki yok", "Detayları görüntüleme izniniz yok."); return; }
+            var selected = (await _grid!.GetSelectedRecordsAsync())?.FirstOrDefault();
+            if (selected is null) { await Toast.Warning("Uyarı", "Önce bir rol seçiniz."); return; }
+            await OpenDetailsAsync(selected.Id, selected.Name);
+            return;
+        }
+
+        if (id.Equals("Add", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_canCreate) { await Toast.Warning("Yetki yok", "Kayıt ekleme izniniz yok."); return; }
+            await _grid!.AddRecordAsync();
+            return;
+        }
+
+        if (id.Equals("Edit", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_canEdit) { await Toast.Warning("Yetki yok", "Düzenleme izniniz yok."); return; }
+            await _grid!.StartEditAsync();
+            return;
+        }
+
+        if (id.Equals("Delete", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_canDelete) { await Toast.Warning("Yetki yok", "Silme izniniz yok."); return; }
+            await _grid!.DeleteRecordAsync();
+            return;
+        }
+    }
+
+    private async Task OpenDetailsAsync(Guid roleId, string roleName)
+    {
+        _detailsVm = new RoleDetailsVm { RoleId = roleId, RoleName = roleName, ParentNames = new(), ChildNames = new() };
+        _detailsUsers = new();
+
+        if (FetchParentIdsAsync is not null)
+        {
+            var ids = await FetchParentIdsAsync(roleId) ?? Array.Empty<Guid>();
+            _detailsVm.ParentNames = _items.Where(x => ids.Contains(x.Id)).Select(x => x.Name).OrderBy(x => x).ToList();
+        }
+        if (FetchChildIdsAsync is not null)
+        {
+            var ids = await FetchChildIdsAsync(roleId) ?? Array.Empty<Guid>();
+            _detailsVm.ChildNames = _items.Where(x => ids.Contains(x.Id)).Select(x => x.Name).OrderBy(x => x).ToList();
+        }
+
+        if (FetchUsersOfRoleAsync is not null)
+        {
+            var (_, users) = await SafeAsync(() => FetchUsersOfRoleAsync(roleId));
+            _detailsUsers = users?.ToList() ?? new();
+        }
+
+        _detailsOpen = true;
+    }
+
+    // --------- Grid Actions ---------
+    private async Task OnActionBegin(ActionEventArgs<RoleListDto> args)
+    {
+        switch (args.RequestType)
+        {
+            case Syncfusion.Blazor.Grids.Action.Add:
+                _editVm = new();
+                _roleOptionsForHierarchy = _items.ToList();
+
+                if (FetchUserLookupAsync is not null && _userOptionsView.Count == 0)
+                {
+                    var (_, users) = await SafeAsync(() => FetchUserLookupAsync());
+                    _userOptionsView = (users ?? Array.Empty<UserListDto>())
+                        .Where(u => u.Id != Guid.Empty)
+                        .DistinctBy(u => u.UserId)
+                        .Select(u => new UserOption { Value = u.Id, Text = $"{u.FirstName} {u.LastName}".Trim() })
+                        .ToList();
+                }
+                break;
+
+            case Syncfusion.Blazor.Grids.Action.BeginEdit:
+                if (args.RowData is RoleListDto row)
+                {
+                    _editVm = new()
+                    {
+                        Id = row.Id,
+                        Name = row.Name,
+                        StartPage = row.StartPage,
+                        IsActive = row.IsActive,
+                        IsTeam = row.IsTeam,
+                        IsDepartment = row.IsDepartment,
+                        ParentIds = new(),
+                        ChildIds = new(),
+                        UserIds = new()
+                    };
+
+                    _roleOptionsForHierarchy = _items.Where(r => r.Id != row.Id).ToList();
+
+                    if (FetchParentIdsAsync is not null)
+                    {
+                        var ids = await FetchParentIdsAsync(row.Id);
+                        _editVm.ParentIds = (ids ?? Array.Empty<Guid>()).ToList();
+                    }
+                    if (FetchChildIdsAsync is not null)
+                    {
+                        var ids = await FetchChildIdsAsync(row.Id);
+                        _editVm.ChildIds = (ids ?? Array.Empty<Guid>()).ToList();
+                    }
+
+                    if (FetchUsersOfRoleAsync is not null)
+                    {
+                        var (_, users) = await SafeAsync(() => FetchUsersOfRoleAsync(row.Id));
+                        _editVm.UserIds = users?.Select(u => u.Id).ToList() ?? new();
+                    }
+                }
+                break;
+
+            case Syncfusion.Blazor.Grids.Action.Save:
+                args.Cancel = true;
+
+                if (string.IsNullOrWhiteSpace(_editVm.Name))
+                {
+                    await Toast.Warning("Uyarı", "Rol adı zorunludur.");
+                    return;
+                }
+
+                var dto = new RoleDto
+                {
+                    Id = _editVm.Id,
+                    Name = _editVm.Name,
+                    StartPage = _editVm.StartPage,
+                    IsActive = _editVm.IsActive,
+                    IsTeam = _editVm.IsTeam,
+                    IsDepartment = _editVm.IsDepartment
+                };
+
+                Guid savedId = dto.Id;
+
+                if (dto.Id == Guid.Empty)
+                {
+                    await SafeAsync(() => CreateAsync(dto), successToast: "Rol eklendi", errorToast: "Rol eklenemedi");
+
+                    await LoadAsync();
+                    var match = _items.FirstOrDefault(x =>
+                        x.Name == dto.Name &&
+                        x.StartPage == dto.StartPage &&
+                        x.IsActive == dto.IsActive &&
+                        x.IsTeam == dto.IsTeam &&
+                        x.IsDepartment == dto.IsDepartment);
+
+                    savedId = match?.Id ?? Guid.Empty;
+                }
+                else
+                {
+                    await SafeAsync(() => UpdateAsync(dto), successToast: "Rol güncellendi", errorToast: "Rol güncellenemedi");
+                }
+
+                if (savedId != Guid.Empty)
+                {
+                    if (SetParentsAsync is not null)
+                        await SafeAsync(() => SetParentsAsync(savedId, (_editVm.ParentIds ?? new()).ToList()), errorToast: "Ebeveyn atama başarısız");
+
+                    if (SetChildrenAsync is not null)
+                        await SafeAsync(() => SetChildrenAsync(savedId, (_editVm.ChildIds ?? new()).ToList()), errorToast: "Çocuk atama başarısız");
+
+                    if (SetUsersOfRoleAsync is not null)
+                        await SafeAsync(() => SetUsersOfRoleAsync(savedId, (_editVm.UserIds ?? new()).ToList()), errorToast: "Kullanıcı atama başarısız");
+                }
+                else if (SetParentsAsync is not null || SetChildrenAsync is not null || SetUsersOfRoleAsync is not null)
+                {
+                    await Toast.Warning("Uyarı", "Yeni rol kimliği belirlenemedi; hiyerarşi/kullanıcı ataması uygulanamadı.");
+                }
+
+                await ReloadAsync();
+                try { await _grid!.CloseEditAsync(); } catch { }
+
+                if (OnChanged.HasDelegate)
+                    await OnChanged.InvokeAsync();
+                break;
+
+            case Syncfusion.Blazor.Grids.Action.Delete:
+                if (args.Data is RoleListDto del && del.Id != Guid.Empty)
+                {
+                    args.Cancel = true;
+                    await SafeAsync(async () =>
+                    {
+                        await DeleteAsync(del.Id);
+                        await ReloadAsync();
+                    }, successToast: "Rol silindi", errorToast: "Rol silinemedi");
+                }
+                break;
+        }
+    }
+
+    // --- Edit VM / Details VM / UserOption ---
+    private sealed class RoleEditVm
+    {
+        public Guid Id { get; set; } = Guid.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string StartPage { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+        public bool IsTeam { get; set; } = false;
+        public bool IsDepartment { get; set; } = false;
+        public List<Guid> ParentIds { get; set; } = [];
+        public List<Guid> ChildIds { get; set; } = [];
+        public List<Guid> UserIds { get; set; } = [];
+    }
+
+    private sealed class RoleDetailsVm
+    {
+        public Guid RoleId { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+        public List<string> ParentNames { get; set; } = new();
+        public List<string> ChildNames { get; set; } = new();
+    }
+
+    private sealed class UserOption
+    {
+        public Guid Value { get; set; }
+        public string Text { get; set; } = "";
+    }
+}

@@ -1,32 +1,94 @@
-﻿@using Syncfusion.Blazor.Notifications
-@inject ProskonUI.Services.ToastService ToastService
+﻿@using ProskonUI.Services.Toasts
+@using Syncfusion.Blazor.Notifications
+@inject ToastService ToastService
+@implements IDisposable
 
-<SfToast @ref="toast" ID="app_toast" Width="320px">
-    <ToastPosition X="Center"></ToastPosition>
+<SfToast @ref="_toast"
+         ID="app_toast"
+         NewestOnTop="true"
+         ShowCloseButton="true"
+         Timeout="@_defaultTimeout"
+         Width="320px">
+    <!-- Konumu istersen Center yapabilirsin: <ToastPosition X="Center" Y="Top" /> -->
+    <ToastPosition X="Center" Y="Top"></ToastPosition>
 </SfToast>
 
 @code {
-    private SfToast? toast;
+    private SfToast? _toast;
+    private int _defaultTimeout = 2500;
+
+    // @ref hazır olana kadar gelen istekleri bekletmek için
+    private readonly TaskCompletionSource<bool> _readyTcs =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     protected override void OnInitialized()
     {
+        // Servis event’lerine abone ol
         ToastService.OnShow += HandleShowAsync;
         ToastService.OnHideAll += HandleHideAllAsync;
     }
 
-    private Task HandleHideAllAsync()
-        => toast?.HideAsync("All") ?? Task.CompletedTask;
-
-    private Task HandleShowAsync(ToastRequest req)
+    protected override Task OnAfterRenderAsync(bool firstRender)
     {
+        if (firstRender)
+            _readyTcs.TrySetResult(true); // artık @ref hazır
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleShowAsync(ToastRequest req)
+    {
+        // Host hazır olana kadar bekle
+        await _readyTcs.Task;
+
         var model = req.Type switch
         {
-            ToastType.Success => new ToastModel { Title = string.IsNullOrWhiteSpace(req.Title) ? "Başarılı!" : req.Title, Content = req.Content, CssClass = "e-toast-success", Icon = "fs-36 bi-check-square-fill" },
-            ToastType.Error => new ToastModel { Title = string.IsNullOrWhiteSpace(req.Title) ? "Hata!" : req.Title, Content = req.Content, CssClass = "e-toast-danger", Icon = "fs-36 bi-exclamation-square-fill" },
-            ToastType.Warning => new ToastModel { Title = string.IsNullOrWhiteSpace(req.Title) ? "Uyarı!" : req.Title, Content = req.Content, CssClass = "e-toast-warning", Icon = "fs-36 bi-exclamation-triangle-fill" },
-            _ => new ToastModel { Title = string.IsNullOrWhiteSpace(req.Title) ? "Bilgi" : req.Title, Content = req.Content, CssClass = "e-toast-info", Icon = "fs-36 bi-info-square-fill" }
+            ToastType.Success => new ToastModel
+            {
+                Title = string.IsNullOrWhiteSpace(req.Title) ? "Başarılı!" : req.Title,
+                Content = req.Content,
+                CssClass = "e-toast-success",
+                Icon = "fs-36 bi-check-square-fill"
+            },
+            ToastType.Error => new ToastModel
+            {
+                Title = string.IsNullOrWhiteSpace(req.Title) ? "Hata!" : req.Title,
+                Content = req.Content,
+                CssClass = "e-toast-danger",
+                Icon = "fs-36 bi-exclamation-square-fill"
+            },
+            ToastType.Warning => new ToastModel
+            {
+                Title = string.IsNullOrWhiteSpace(req.Title) ? "Uyarı!" : req.Title,
+                Content = req.Content,
+                CssClass = "e-toast-warning",
+                Icon = "fs-36 bi-exclamation-triangle-fill"
+            },
+            _ => new ToastModel
+            {
+                Title = string.IsNullOrWhiteSpace(req.Title) ? "Bilgi" : req.Title,
+                Content = req.Content,
+                CssClass = "e-toast-info",
+                Icon = "fs-36 bi-info-square-fill"
+            }
         };
-        if (req.TimeOutMs is int ms) model.Timeout = ms;
-        return toast!.ShowAsync(model);
+
+        if (req.TimeOutMs is int ms)
+            model.Timeout = ms;
+
+        if (_toast is not null)
+            await _toast.ShowAsync(model);
+    }
+
+    private async Task HandleHideAllAsync()
+    {
+        await _readyTcs.Task;
+        if (_toast is not null)
+            await _toast.HideAsync("All"); // 30.2.5 için doğru overload
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnShow -= HandleShowAsync;
+        ToastService.OnHideAll -= HandleHideAllAsync;
     }
 }

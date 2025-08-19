@@ -1,39 +1,51 @@
 ﻿using _01_Data.Entities;
 using System.Linq.Expressions;
+
 namespace _01_Data.Specifications;
 
 #region Bases
 public interface ISpecification<T>
 {
+    bool AllowCycleIncludes { get; }
     Expression<Func<T, bool>>? Criteria { get; }
     Expression<Func<T, object>>[] Includes { get; }
     Expression<Func<T, object>>? OrderBy { get; }
     bool IsDescending { get; }
     int? Skip { get; }
     int? Take { get; }
+    string[] IncludeStrings { get; }
+    List<Expression<Func<T, object>>> ThenBys { get; }
+    bool IsReadOnlyQuery { get; }            // default: true (UI -> read-only)
+    bool UseSplitQuery { get; }
+    bool UseIdentityResolution { get; }
 }
+
 public class InlineSpec<T> : BaseSpecification<T>
 {
-    public InlineSpec(Expression<Func<T, bool>> criteria)
-    {
-        Criteria = criteria;
-    }
-    public InlineSpec() : this(_ => true)
-    {
-    }
+    public InlineSpec(Expression<Func<T, bool>> criteria) => Criteria = criteria;
+
+    public InlineSpec() : this(_ => true) { }
+
     public InlineSpec(params Expression<Func<T, object>>[] includes) : this(_ => true)
     {
         Includes = includes;
     }
 }
+
 public abstract class BaseSpecification<T> : ISpecification<T>
 {
+    public bool AllowCycleIncludes { get; set; } = false;
     public Expression<Func<T, bool>>? Criteria { get; set; }
     public Expression<Func<T, object>>[] Includes { get; set; } = [];
     public Expression<Func<T, object>>? OrderBy { get; set; }
     public bool IsDescending { get; set; }
     public int? Skip { get; set; }
     public int? Take { get; set; }
+    public string[] IncludeStrings { get; set; } = [];
+    public List<Expression<Func<T, object>>> ThenBys { get; } = [];
+    public bool IsReadOnlyQuery { get; set; } = true;
+    public bool UseSplitQuery { get; set; } = false;
+    public bool UseIdentityResolution { get; set; } = false;
 }
 #endregion
 
@@ -43,19 +55,23 @@ public static class ItemSpec
     public static ISpecification<T3Item> All()
         => new InlineSpec<T3Item>(i => true)
         {
-            Includes = [i => i.Module, i => i.Location!, i => i.ModuleType]
+            Includes = [i => i.Module, i => i.Location!, i => i.ModuleType!]
         };
 
     public static ISpecification<T3Item> ById(Guid id)
         => new InlineSpec<T3Item>(i => i.Id == id)
         {
-            Includes = [i => i.ListParents, i => i.ListChilds]
+            Includes = [i => i.ListParents, i => i.ListChilds],
+            AllowCycleIncludes = true
         };
 
     public static ISpecification<T3Item> Tree()
         => new InlineSpec<T3Item>(i => true)
         {
-            Includes = [i => i.ListParents, i => i.ListChilds]
+            Includes = [i => i.ListParents, i => i.ListChilds],
+            AllowCycleIncludes = true,
+            UseIdentityResolution = true,
+            UseSplitQuery = true
         };
 
     public static ISpecification<T3Item> ByModule(Guid moduleId)
@@ -85,36 +101,45 @@ public static class ItemSpec
     public static ISpecification<T3Item> WithHierarchy()
         => new InlineSpec<T3Item>(i => true)
         {
-            Includes = [i => i.ListParents, i => i.ListChilds]
+            Includes = [i => i.ListParents, i => i.ListChilds],
+            AllowCycleIncludes = true,
+            UseIdentityResolution = true,
+            UseSplitQuery = true
         };
 
     public static ISpecification<T3Item> Paged(string keyword, int skip, int take)
-        => new InlineSpec<T3Item>(i =>
-            i.Name.Contains(keyword))
+        => new InlineSpec<T3Item>(i => i.Name.Contains(keyword))
         {
             OrderBy = i => i.Name,
             Skip = skip,
             Take = take
         };
 }
+
 public static class LocationSpec
 {
     public static ISpecification<T3Location> All()
         => new InlineSpec<T3Location>(l => true)
         {
-            Includes = [l => l.ListParents, l => l.ListChilds]
+            Includes = [l => l.ListParents, l => l.ListChilds],
+            AllowCycleIncludes = true,
+            UseIdentityResolution = true,
+            UseSplitQuery = true
+        };
+
+    public static ISpecification<T3Location> Tree()
+        => new InlineSpec<T3Location>(l => true)
+        {
+            Includes = [l => l.ListParents, l => l.ListChilds],
+            AllowCycleIncludes = true,
+            UseIdentityResolution = true,
+            UseSplitQuery = true
         };
 
     public static ISpecification<T3Location> ById(Guid id)
         => new InlineSpec<T3Location>(l => l.Id == id)
         {
             Includes = [l => l.ListItems, l => l.ListLocationItems]
-        };
-
-    public static ISpecification<T3Location> Tree()
-        => new InlineSpec<T3Location>(l => true)
-        {
-            Includes = [l => l.ListParents, l => l.ListChilds]
         };
 
     public static ISpecification<T3Location> ByOperationNo(int operationNo)
@@ -129,32 +154,38 @@ public static class LocationSpec
         };
 
     public static ISpecification<T3Location> Paged(string keyword, int skip, int take)
-        => new InlineSpec<T3Location>(l =>
-            l.Name.Contains(keyword))
+        => new InlineSpec<T3Location>(l => l.Name.Contains(keyword))
         {
             OrderBy = l => l.Name,
             Skip = skip,
             Take = take
         };
 }
+
 public static class ModuleSpec
 {
     public static ISpecification<T3Module> All()
         => new InlineSpec<T3Module>(m => true)
         {
-            Includes = [m => m.ListParents, m => m.ListChilds]
+            Includes = [m => m.ListParents, m => m.ListChilds],
+            AllowCycleIncludes = true,
+            UseIdentityResolution = true,
+            UseSplitQuery = true
+        };
+
+    public static ISpecification<T3Module> Tree()
+        => new InlineSpec<T3Module>(m => true)
+        {
+            Includes = [m => m.ListParents, m => m.ListChilds],
+            AllowCycleIncludes = true,
+            UseIdentityResolution = true,
+            UseSplitQuery = true
         };
 
     public static ISpecification<T3Module> ById(Guid id)
         => new InlineSpec<T3Module>(m => m.Id == id)
         {
             Includes = [m => m.ListItems]
-        };
-
-    public static ISpecification<T3Module> Tree()
-        => new InlineSpec<T3Module>(m => true)
-        {
-            Includes = [m => m.ListParents, m => m.ListChilds]
         };
 
     public static ISpecification<T3Module> Search(string keyword)
@@ -166,14 +197,14 @@ public static class ModuleSpec
         };
 
     public static ISpecification<T3Module> Paged(string keyword, int skip, int take)
-        => new InlineSpec<T3Module>(m =>
-            m.Name.Contains(keyword))
+        => new InlineSpec<T3Module>(m => m.Name.Contains(keyword))
         {
             OrderBy = m => m.Name,
             Skip = skip,
             Take = take
         };
 }
+
 public static class UserSpec
 {
     public static ISpecification<T3IdentityUser> All()
@@ -195,7 +226,14 @@ public static class UserSpec
         => new InlineSpec<T3IdentityUser>(u => u.Barcode == barcode);
 
     public static ISpecification<T3IdentityUser> ByUserId(string userId)
-        => new InlineSpec<T3IdentityUser>(u => u.UserId == userId);
+        => new InlineSpec<T3IdentityUser>(u => u.UserId == userId)
+        {
+            Includes =
+            [
+                u => u.ListRoles,
+                u => u.ListClaims,
+            ]
+        };
 
     public static ISpecification<T3IdentityUser> Search(string keyword)
         => new InlineSpec<T3IdentityUser>(u =>
@@ -206,6 +244,7 @@ public static class UserSpec
             OrderBy = u => u.FirstName
         };
 }
+
 public static class RoleSpec
 {
     public static ISpecification<T3IdentityRole> All()
@@ -218,6 +257,15 @@ public static class RoleSpec
             Includes = [r => r.ListUsers]
         };
 
+    public static ISpecification<T3IdentityRole> Tree()
+        => new InlineSpec<T3IdentityRole>(r => true)
+        {
+            Includes = [r => r.ListParents, r => r.ListChilds],
+            AllowCycleIncludes = true,
+            UseIdentityResolution = true,
+            UseSplitQuery = true
+        };
+     
     public static ISpecification<T3IdentityRole> Departments()
         => new InlineSpec<T3IdentityRole>(r => r.IsDepartment && r.IsActive)
         {
@@ -238,13 +286,15 @@ public static class RoleSpec
         };
 
     public static ISpecification<T3IdentityRole> SearchPaged(string keyword, int skip, int take)
-        => new InlineSpec<T3IdentityRole>(r => r.Name.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+        // EF: StringComparison overload SQL'e çevrilmez; ToLower pattern'i kullan
+        => new InlineSpec<T3IdentityRole>(r => r.Name.Contains(keyword, StringComparison.CurrentCultureIgnoreCase))
         {
             OrderBy = r => r.Name,
             Skip = skip,
             Take = take
         };
 }
+
 public static class FormSpec
 {
     public static ISpecification<T3Form> All()
@@ -275,11 +325,13 @@ public static class FormSpec
             Take = take
         };
 }
+
 public static class FormResourceSpec
 {
     public static ISpecification<T3FormResource> All()
         => new InlineSpec<T3FormResource>(r => true);
 }
+
 public static class TemplateSpec
 {
     public static ISpecification<T3Template> All()
@@ -298,6 +350,7 @@ public static class TemplateSpec
         => new InlineSpec<T3Template>(t =>
             t.ListApprovers.Any(a => a.UserId == userId || a.RoleId == userId));
 }
+
 public static class PropertySpec
 {
     public static ISpecification<T3Property> All()
@@ -317,6 +370,7 @@ public static class PropertySpec
             OrderBy = p => p.Name
         };
 }
+
 public static class ProcessTypeSpec
 {
     public static ISpecification<T3ProcessType> All()
@@ -333,6 +387,7 @@ public static class ProcessTypeSpec
             p.Name.Contains(keyword) ||
             p.Barcode.Contains(keyword));
 }
+
 public static class ProtocolSpec
 {
     public static ISpecification<T3Protocol> All()
@@ -344,6 +399,7 @@ public static class ProtocolSpec
     public static ISpecification<T3Protocol> ByProcessType(Guid processTypeId)
         => new InlineSpec<T3Protocol>(p => p.ProcessTypeId == processTypeId);
 }
+
 public static class ShiftSpec
 {
     public static ISpecification<T3Shift> All()
@@ -355,6 +411,7 @@ public static class ShiftSpec
     public static ISpecification<T3Shift> ByLocation(Guid locationId)
         => new InlineSpec<T3Shift>(s => s.LocationId == locationId);
 }
+
 public static class ShiftTypeSpec
 {
     public static ISpecification<T3ShiftType> All()
@@ -369,6 +426,7 @@ public static class ShiftTypeSpec
             Includes = [s => s.ListDays]
         };
 }
+
 public static class ClaimSpec
 {
     public static ISpecification<T3IdentityClaim> All()

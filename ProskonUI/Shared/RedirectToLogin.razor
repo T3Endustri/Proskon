@@ -1,0 +1,14 @@
+﻿@inject NavigationManager Navigation
+
+@code {
+    bool _did;
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (_did) return;
+        _did = true;
+
+        var rel = Navigation.ToBaseRelativePath(Navigation.Uri);     // her zaman yerel path
+        var returnUrl = Uri.EscapeDataString("/" + rel.TrimStart('/'));
+        Navigation.NavigateTo($"/login?returnUrl={returnUrl}", forceLoad: true);
+    }
+}

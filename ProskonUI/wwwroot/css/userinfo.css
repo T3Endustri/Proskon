@@ -1,0 +1,139 @@
+﻿.ui-card {
+    background: var(--e-sf-surface, #fff);
+    border-radius: 1rem;
+    padding: 1.25rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,.06);
+}
+
+    .ui-card.error {
+        border: 1px solid #f5c2c7;
+        background: #fff5f5;
+    }
+
+.header {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.title-area {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    flex: 1;
+}
+
+.name-row {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.subtitle {
+    color: var(--e-sf-muted, #666);
+    font-size: .9rem;
+}
+
+.chip-row {
+    margin-top: .25rem;
+}
+
+actions {
+    margin-left: auto;
+    display: flex;
+    gap: .25rem;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .75rem;
+    margin-top: 1rem;
+}
+
+.grid-item {
+    background: var(--e-sf-subtle, #fafafa);
+    border-radius: .75rem;
+    padding: .75rem;
+}
+
+.label {
+    font-size: .78rem;
+    color: var(--e-sf-muted, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+
+.value {
+    font-size: .98rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    word-break: break-all;
+}
+
+.with-copy {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.copy {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    padding: .25rem;
+    border-radius: .5rem;
+}
+
+    .copy:hover {
+        background: rgba(0,0,0,.05);
+    }
+
+.footer {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.meta-grid {
+    margin-top: 1rem;
+}
+
+.badge {
+    padding: .125rem .5rem;
+    border-radius: 9999px;
+    font-size: .75rem;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: #e6f8ee;
+    color: #16794d;
+}
+
+.badge-warning {
+    background: #fff4e5;
+    color: #8a5a00;
+}
+
+.badge-danger {
+    background: #ffe5e8;
+    color: #9f1239;
+}
+
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}

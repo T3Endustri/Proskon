@@ -1,5 +1,5 @@
-﻿using _01_Data.Entities;
-using _02_Application.Dtos;
+﻿using _02_Application.Dtos;
+
 namespace _02_Application.Interfaces;
 
 public interface ILogService
@@ -9,11 +9,16 @@ public interface ILogService
     void Error(string source, string message, Exception? ex = null);
 }
 
-public interface IAppSeeder
+public interface IMenuCacheVersion
 {
-    Task SeedAsync();
+    long Version { get; }
+    void Bump();
 }
 
+public interface ISeedService
+{
+    Task EnsureSeedAsync();
+}
 
 public interface IClaimService
 {
@@ -78,6 +83,7 @@ public interface IModuleService
     Task<List<ModuleListDto>> GetAllAsync();
     Task<ModuleDto?> GetByIdAsync(Guid id);
     Task<List<ModuleTreeDto>> GetTreeAsync();
+    Task<List<ModuleTreeDto>> GetTreeForCurrentAsync();
     Task<List<ModuleHierarchyDto>> GetFlatHierarchyAsync(Guid moduleId);
     Task AddAsync(ModuleDto dto);
     Task UpdateAsync(ModuleDto dto);
@@ -131,11 +137,22 @@ public interface IRoleService
     Task<(List<RoleListDto> Items, int TotalCount)> GetPagedAsync(string keyword, int skip, int take);
     Task<List<RoleDto>> GetByUserIdAsync(Guid userId);
     Task<List<RoleTreeDto>> GetTreeAsync();
+
     Task AddAsync(RoleDto dto);
     Task UpdateAsync(RoleDto dto);
-    Task DeleteAsync(Guid id);
-    Task<List<T3IdentityRole>> GetAllChildRolesRecursiveAsync(Guid roleId);
-    Task<List<T3IdentityRole>> GetAllParentRolesRecursiveAsync(Guid roleId);
+    Task DeleteAsync(Guid id); 
+    Task<List<RoleDto>> GetAllChildRolesRecursiveAsync(Guid roleId);
+    Task<List<RoleDto>> GetAllParentRolesRecursiveAsync(Guid roleId);
+
+    // IRoleService
+    Task<IReadOnlyList<Guid>> GetDirectParentIdsAsync(Guid roleId);
+    Task<IReadOnlyList<Guid>> GetDirectChildIdsAsync(Guid roleId);
+
+    Task SetParentsAsync(Guid roleId, List<Guid> parentIds);
+    Task SetChildrenAsync(Guid roleId, List<Guid> childIds);
+ 
+    Task<RoleUsersDto> GetUsersAsync(Guid roleId);
+    Task AssignUsersAsync(AssignUsersToRoleRequest request);
 }
 
 public interface IShiftService
@@ -171,6 +188,7 @@ public interface IUserService
 {
     Task<UserListDto?> GetByIdAsync(Guid id);
     Task<List<UserListDto>> GetAllAsync();
+    Task<UserInfoDto> GetUserInfoAsync(Guid id, CancellationToken ct = default);
     Task AddAsync(UserDto dto);
     Task UpdateAsync(UserDto dto);
     Task ChangePasswordAsync(UserChangePasswordDto dto);
@@ -179,5 +197,17 @@ public interface IUserService
 
 public interface IAuthService
 {
-    Task<LoginResultDto> LoginAsync(LoginDto dto);
+    Task<LoginResultDto> LoginAsync(LoginDto loginDto);
+}
+
+public interface ICurrentUser
+{
+    Guid? UserId { get; }
+    bool IsAuthenticated { get; }
+    IReadOnlyCollection<string> Roles { get; }
+    IReadOnlyCollection<(string Type, string Value)> Claims { get; }
+    bool HasRole(string roleName);
+    bool HasClaim(string type, string value);
+    UserListDto? User { get; }                 // UI tarafında DTO
+    Task EnsureLoadedAsync(CancellationToken ct = default);
 }

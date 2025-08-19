@@ -1,0 +1,266 @@
+﻿@inject IJSRuntime JS
+@inherits ProskonComponentBase
+ 
+@if (IsLoading)
+{
+    <div class="ui-card">
+        <div class="header">
+            <SfSkeleton Shape="SkeletonType.Circle" Width="64px" Height="64px" />
+            <div class="title-area">
+                <SfSkeleton Width="220px" Height="20px" />
+                <SfSkeleton Width="120px" Height="16px" />
+            </div>
+        </div>
+        <div class="meta-grid">
+            @for (int i = 0; i < 6; i++)
+            {
+                <SfSkeleton Width="100%" Height="18px" CssClass="mb-2" />
+            }
+        </div>
+    </div>
+}
+else if (!string.IsNullOrWhiteSpace(LoadError))
+{
+    <div class="ui-card error">
+        <div class="error-title">Kullanıcı bilgileri yüklenemedi</div>
+        <div class="error-body">@LoadError</div>
+        <SfButton CssClass="e-primary" @onclick="ReloadAsync">Tekrar Dene</SfButton>
+    </div>
+}
+else if (User is not null)
+{
+    <div class="ui-card">
+        <div class="header">
+            @if (User.AvatarUrl != "")
+            {
+                <img class="avatar" src="@User.AvatarUrl" alt="avatar" />
+            }
+            <div class="title-area">
+                <div class="name-row">
+                    <span class="display-name">@User.DisplayName</span>
+                    @if (User.Status == UserStatusDto.Locked)
+                    {
+                        <span class="badge badge-danger">Kilitle</span>
+                    }
+                    else if (User.Status == UserStatusDto.Inactive)
+                    {
+                        <span class="badge badge-warning">Pasif</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-success">Aktif</span>
+                    }
+                </div>
+                <div class="subtitle">
+                    @User.Title @if (!string.IsNullOrWhiteSpace(User.Department)) {
+                    <text>• @User.Department</text>
+                }
+            </div>
+
+            <div class="chip-container">
+                @if (User.Roles?.Count > 0)
+                {
+                    @foreach (var role in User.Roles)
+                    {
+                        <SfChip Text="@role" CssClass="e-primary" />
+                    }
+                }
+            </div>
+        </div>
+        <div class="actions">
+            @if (ShowEdit)
+            {
+                <SfTooltip Content="Düzenle">
+                    <SfButton CssClass="e-flat" IconCss="e-icons e-edit" @onclick="() => OnEdit.InvokeAsync(User)"></SfButton>
+                </SfTooltip>
+            }
+            <SfTooltip Content="Yenile">
+                <SfButton CssClass="e-flat" IconCss="e-icons e-refresh" @onclick="ReloadAsync"></SfButton>
+            </SfTooltip>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="grid-item">
+            <div class="label">Kullanıcı ID</div>
+            <div class="value with-copy">
+                @User.Id
+                <SfTooltip Content="Kopyala">
+                    <button class="copy" @onclick="() => CopyToClipboard(User.Id.ToString())"><span class="e-icons e-copy"></span></button>
+                </SfTooltip>
+            </div>
+        </div>
+        <div class="grid-item">
+            <div class="label">E-posta</div>
+            <div class="value with-copy">
+                @User.Email
+                <SfTooltip Content="Kopyala">
+                    <button class="copy" @onclick="() => CopyToClipboard(User.Email)"><span class="e-icons e-copy"></span></button>
+                </SfTooltip>
+            </div>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(User.Phone))
+        {
+            <div class="grid-item">
+                <div class="label">Telefon</div>
+                <div class="value with-copy">
+                    @User.Phone
+                    <SfTooltip Content="Kopyala">
+                        <button class="copy" @onclick="() => CopyToClipboard(User.Phone)"><span class="e-icons e-copy"></span></button>
+                    </SfTooltip>
+                </div>
+            </div>
+        }
+        <div class="grid-item">
+            <div class="label">Oluşturulma</div>
+            <div class="value">@User.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+        </div>
+        <div class="grid-item">
+            <div class="label">Son Giriş</div>
+            <div class="value">@(User.LastLogin?.ToLocalTime().ToString("dd.MM.yyyy HH:mm") ?? "-")</div>
+        </div>
+        @if (User.Claims?.Count > 0)
+        {
+            <div class="grid-item claims">
+                <div class="label">Yetkiler</div>
+                <div class="value">
+                    <div class="chip-container">
+                        @foreach (var role in User.Roles ?? [])
+                        {
+                            <SfChip Text="@role" CssClass="e-primary" />
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (Footer is not null)
+    {
+        <div class="footer">
+            @Footer
+        </div>
+    }
+</div>
+}
+
+@code {
+    [Parameter] public Guid? UserId { get; set; }
+    [Parameter] public UserInfoDto? User { get; set; }
+    [Parameter] public bool AutoLoad { get; set; } = true;
+    [Parameter] public bool Realtime { get; set; } = true;
+    [Parameter] public bool ShowEdit { get; set; } = true;
+    [Parameter] public RenderFragment? Footer { get; set; }
+    [Parameter] public EventCallback<UserInfoDto> OnEdit { get; set; }
+
+    private bool IsLoading { get; set; }
+    private string? LoadError { get; set; }
+    private HubConnection? _hub;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AutoLoad && (User is null) && UserId is not null)
+        {
+            await LoadAsync(UserId.Value);
+        }
+
+        if (Realtime && (UserId is not null))
+        {
+            await EnsureHubAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AutoLoad && User is null && UserId is not null && !IsLoading)
+        {
+            await LoadAsync(UserId.Value);
+        }
+    }
+
+    private async Task EnsureHubAsync()
+    {
+        try
+        {
+            if (_hub is not null) return;
+            _hub = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/hubs/user-updates"))
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hub.On<Guid>("UserUpdated", async (updatedUserId) =>
+            {
+                if (UserId is not null && updatedUserId == UserId.Value)
+                {
+                    await InvokeAsync(async () => await ReloadAsync());
+                }
+            });
+
+            await _hub.StartAsync();
+        }
+        catch (Exception exp)
+        {
+            LogService.Warning("EnsureHubAsync", $"UserInfo hub connection failed : {exp.ToString()}");
+        }
+    }
+
+    private async Task LoadAsync(Guid id)
+    {
+        IsLoading = true; LoadError = null;
+        try
+        {
+            // Application katmanından DTO çekilir (Specification pattern servis içinde)
+            User = await UserService.GetUserInfoAsync(id);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex.ToString(), $"UserInfo load failed for {id}");
+            LoadError = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        if (UserId is not null)
+            await LoadAsync(UserId.Value);
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch { }
+    }
+}
+
+@* -------------------------------------------------
+   Usage examples
+   ------------------------------------------------- *@
+@* _Imports.razor
+@using _02_Application.Abstractions
+@using _02_Application.DTOs.Users
+@using Syncfusion.Blazor
+*@
+
+@* Place on a page
+<UserInfo UserId="@someGuid" />
+<UserInfo User="@userDto" ShowEdit="false" Realtime="false" />
+<UserInfo UserId="@userId">
+    <Footer>
+        <SfButton CssClass="e-danger" IconCss="e-icons e-lock">Şifre Sıfırla</SfButton>
+    </Footer>
+</UserInfo>
+*@
+
+@* -------------------------------------------------
+   NuGet (UI project)
+   dotnet add package Microsoft.AspNetCore.SignalR.Client
+   dotnet add package Syncfusion.Blazor
+   ------------------------------------------------- *@

@@ -1,0 +1,173 @@
+﻿/* Temel değişkenler */
+:root {
+    --sb-dock: 60px;
+    --sb-bg: #000;
+    --sb-fg: #e8e8f0;
+    --sb-fg-dim: #b8b8c6;
+    --sb-hover: rgba(255,255,255,.06);
+    --sb-active: rgba(255,255,255,.12);
+    --indent-step: 14px; /* hiyerarşik girinti adımı */
+    --item-h: 40px;
+    --item-radius: 10px;
+    --icon-size: 24px; /* İKON BOYUTU — yalnız buradan yönet */
+    --text-size: 16px; /* metin boyutu */
+}
+
+/* (Opsiyonel) Light tema */
+@media (prefers-color-scheme: light) {
+    :root {
+        --sb-bg: #ffffff;
+        --sb-fg: #1b1b1f;
+        --sb-fg-dim: #5c5e66;
+        --sb-hover: rgba(0,0,0,.06);
+        --sb-active: rgba(0,0,0,.10);
+    }
+}
+
+/* === Syncfusion Sidebar gövdesi === */
+.e-sidebar {
+    background: var(--sb-bg);
+    color: var(--sb-fg);
+    border-right: 1px solid rgba(0,0,0,.06);
+    overflow: hidden;
+}
+
+/* Statik ve dinamik bloklar */
+.sidebar-static-item,
+.sidebar-dynamic-item {
+    padding: 0 1px;
+    margin-top: 5px;
+}
+
+/* === Link iskeleti === */
+.sidebar-link {
+    font-size: var(--text-size); /* METİN BOYUTU */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: var(--item-h);
+    padding: 0 10px;
+    color: inherit;
+    text-decoration: none;
+    border-radius: var(--item-radius);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: calc(10px + var(--depth, 0) * var(--indent-step));
+    transition: background-color .15s ease, transform .15s ease;
+}
+
+/* Bootstrap alt-çizgi temizliği */
+.e-sidebar .sidebar-link {
+    text-decoration: none !important;
+}
+
+/* Hover / Active */
+.sidebar-link:hover {
+    background: var(--sb-hover);
+}
+
+.sidebar-link.active {
+    font-weight: 600;
+}
+
+/* === İkon — BOYUT VE RENK TAMAMEN CSS'TEN === */
+.sidebar-link > i.bi {
+    font-size: var(--icon-size);
+    text-align: left;
+    flex: 0 0 auto;
+    color: var(--icon-color, var(--sb-fg-dim));
+    border-radius: 5px;
+    padding: 3px 10px;
+}
+
+.sidebar-link.active > i.bi {
+    color: var(--icon-color, var(--sb-fg));
+}
+
+/* === Dock davranışları === */
+
+/* Dock + KAPALI: yalnız ikon → ortala */
+.e-sidebar.e-dock.e-close .sidebar-link {
+    justify-content: center;
+}
+/* Dock + AÇIK veya dock değil: sola yasla */
+.e-sidebar.e-dock.e-open .sidebar-link,
+.e-sidebar:not(.e-dock) .sidebar-link {
+    justify-content: flex-start;
+}
+
+/* Metin görünürlük kuralları */
+.e-sidebar .sidebar-text {
+    display: inline;
+}
+
+.e-sidebar.e-dock.e-close .sidebar-text {
+    display: none !important;
+}
+
+.e-sidebar.e-dock.e-open .sidebar-text {
+    display: inline !important;
+}
+
+.e-sidebar:not(.e-dock) .sidebar-text {
+    display: inline !important;
+}
+
+/* Erişilebilirlik */
+.sidebar-link:focus-visible {
+    outline: 2px solid #7aa2ff;
+    outline-offset: 2px;
+}
+
+/* Küçük ekran iyileştirme */
+@media (max-width: 768px) {
+    .sidebar-link {
+        height: calc(var(--item-h) + 6px);
+    }
+}
+
+/* (Opsiyonel) İnce scrollbar */
+.e-sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.e-sidebar::-webkit-scrollbar-thumb {
+    background: var(--sb-hover);
+    border-radius: 8px;
+}
+
+/* ===========================================================
+   Layout içerik kaydırma — inline stil ve transform'u bastır
+   =========================================================== */
+#layout-container > main.content {
+    margin-left: var(--sb-dock) !important; /* 60px (DockSize) */
+    transform: none !important; /* Syncfusion inline translateX(...) devre dışı */
+    transition: margin-left .25s ease;
+}
+
+    /* Sidebar açıkken 260px (Sidebar Width) */
+    #layout-container > main.content.shifted {
+        margin-left: 260px !important;
+        transform: none !important;
+    }
+
+/* Mobilde push yapma; overlay gibi davran */
+@media (max-width: 768px) {
+    #layout-container > main.content,
+    #layout-container > main.content.shifted {
+        margin-left: 0 !important;
+        transform: none !important;
+    }
+}
+
+/* ===== İsteğe bağlı presetler (metin boyutu) ===== */
+/* .sidebar--text-sm  → küçük metin */
+/* .sidebar--text-lg  → büyük metin */
+.sidebar--text-sm .sidebar-link {
+    --text-size: 14px;
+}
+
+.sidebar--text-lg .sidebar-link {
+    --text-size: 18px;
+}
